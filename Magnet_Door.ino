@@ -1,71 +1,149 @@
 /*************************************************************
-  Download latest Blynk library here:
-    https://github.com/blynkkk/blynk-library/releases/latest
+  Code for ESP32 to trigger Blynk notification when sensor detects door open.
+*************************************************************/
 
-  Blynk is a platform with iOS and Android apps to control
-  Arduino, Raspberry Pi and the likes over the Internet.
-  You can easily build graphic interfaces for all your
-  projects by simply dragging and dropping widgets.
-
-    Downloads, docs, tutorials: http://www.blynk.cc
-    Sketch generator:           http://examples.blynk.cc
-    Blynk community:            http://community.blynk.cc
-    Follow us:                  http://www.fb.com/blynkapp
-                                http://twitter.com/blynk_app
-
-  Blynk library is licensed under MIT license
-  This example code is in public domain.
-
- *************************************************************
-  This example runs directly on NodeMCU.
-
-  Note: This requires ESP8266 support package:
-    https://github.com/esp8266/Arduino
-
-  Please be sure to select the right NodeMCU module
-  in the Tools -> Board menu!
-
-  For advanced settings please follow ESP examples :
-   - ESP8266_Standalone_Manual_IP.ino
-   - ESP8266_Standalone_SmartConfig.ino
-   - ESP8266_Standalone_SSL.ino
-
-  Change WiFi ssid, pass, and Blynk auth token to run :)
-  Feel free to apply it to any other example. It's simple!
- *************************************************************/
-
-/* Comment this out to disable prints and save space */
+/* Uncomment this line to enable Serial debug prints */
 #define BLYNK_PRINT Serial
 
-#include <ESP8266WiFi.h>
-#include <BlynkSimpleEsp8266.h>
+#include "credentials.h"
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
 
-// You should get Auth Token in the Blynk App.
-// Go to the Project Settings (nut icon).
-char auth[] = "auth";
 
-// Your WiFi credentials.
-// Set password to "" for open networks.
-char ssid[] = "ssid";
-char pass[] = "password";
+//WiFi credentials
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = WIFI_SSID;      // Your WiFi SSID
+char pass[] = WIFI_PASS;      // Your WiFi password
 
-void setup()
-{
-  // Debug console
-  Serial.begin(9600);
+//Pin Definitions
+const int magSwitchPin = 18;         // magnetic switch pin
+const int redLEDPin = 22;            // red pin
+const int greenLEDPin = 19;          // green pin
+const int buzzerPin = 23;            // buzzer pin
 
+//Notification
+unsigned long lastNotificationTime = 0; // For timer control
+const unsigned long notificationInterval = 1000; // 15 seconds
+
+//Door state
+bool doorOpen = false;
+bool lastDoorOpen = false;
+
+const int buzzerFreq = 100;
+
+// void printWifiStatus() {
+//   // prints the SSID of the attached network:
+//   Serial.print("SSID: ");
+//   Serial.println(WiFi.SSID());
+
+//   // prints board's IP address:
+//   IPAddress ip = WiFi.localIP();
+//   Serial.print("IP Address: ");
+//   Serial.println(ip);
+
+//   // prints the received signal strength:
+//   long rssi = WiFi.RSSI();
+//   Serial.print("signal strength (RSSI):");
+//   Serial.print(rssi);
+//   Serial.println(" dBm");
+// }
+
+// void connectToWiFi(){
+//   // check for the WiFi module:
+//   if (WiFi.status() == WL_NO_MODULE) {
+//     Serial.println("Communication with WiFi module failed!");
+//     // don't continue
+//     while (true);
+//   }
+
+//   String fv = WiFi.firmwareVersion();
+
+//   if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
+//     Serial.println("Please upgrade the firmware");
+//   }
+
+//   // attempt to connect to WiFi network:
+//   while (wifiStatus != WL_CONNECTED) {
+//     Serial.print("Attempting to connect to SSID: ");
+//     Serial.println(ssid);
+//     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+//     wifiStatus = WiFi.begin(ssid, pass);
+//     // wait 10 seconds for connection:
+//     delay(10000);
+//   }
+//   Serial.println("Connected to WiFi");
+//   printWifiStatus();
+// }
+
+void setup() {
+  // Initialize Serial for debugging
+  Serial.begin(115200);
+  while (!Serial){ // wait for serial port to connect.
+  }
+  delay(1000);
+  Serial.println("Serial started.");
+  // Connect to WiFi and Blynk
+  Serial.println("Connecting to WiFi and Blynk...");
   Blynk.begin(auth, ssid, pass);
-  // You can also specify server:
-  //Blynk.begin(auth, ssid, pass, "blynk-cloud.com", 80);
-  //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
- 
+
+  //Setup pins
+  pinMode(magSwitchPin, INPUT);
+  pinMode(redLEDPin, OUTPUT);
+  pinMode(greenLEDPin, OUTPUT);
+
+  //Set initial LED state
+  digitalWrite(redLEDPin, 0x00);
+  digitalWrite(greenLEDPin, 0x01);
 }
-void loop()
-{
+
+void loop() {
+  // if(!Blynk.connected()) {
+  //   Serial.println("Connection lost. Try to reconnect.");
+  //   Blynk.connect();
+  // }
   Blynk.run();
- if(analogRead(A0)<=1000)
- {
-  Blynk.notify("Looks like someone's opened the door");
-  delay(15000);
- }
+
+  doorOpen = digitalRead(magSwitchPin);
+  
+  // Serial.print("Sensor Value: ");
+  // Serial.println(doorOpen);
+  // delay(2000);
+
+  // Check if sensor value is below threshold to indicate door is opened
+  if (lastDoorOpen != doorOpen && (millis() - lastNotificationTime >= notificationInterval)) {
+    lastDoorOpen = doorOpen;
+    if(doorOpen) {
+      Serial.println("Door was opened");
+
+      // Trigger the event for notification in Blynk
+      Blynk.logEvent("door_opened", "Looks like someone's opened the door");
+
+      //Update status LEDs
+      digitalWrite(redLEDPin, 0x01);
+      digitalWrite(greenLEDPin, 0x00);
+
+      //acoustic signal
+      tone(buzzerPin, buzzerFreq);
+      delay(1000);
+      noTone(buzzerPin);
+    }
+    else {
+      Serial.println("Door was closed");
+
+      // Trigger the event for notification in Blynk
+      Blynk.logEvent("door_closed", "Looks like someone's closed the door");
+
+      //Update status LEDs
+      digitalWrite(redLEDPin, 0x00);
+      digitalWrite(greenLEDPin, 0x01);
+
+      //acoustic signal
+      tone(buzzerPin, buzzerFreq);
+      delay(1000);
+      noTone(buzzerPin);
+    }
+    // Update the time of the last notification
+    lastNotificationTime = millis();
+  }
 }
