@@ -5,5 +5,12 @@
 
 // WiFi credentials
 
-#define WIFI_SSID "Gast-FSch"// "Mostafa's Galaxy A52";       // Your WiFi SSID
-#define WIFI_PASS "Gast*Und*Hast"//"knfm5166";               // Your WiFi password
+#define WIFI_SSID "Mostafa's Galaxy A52";   // Your WiFi SSID
+#define WIFI_PASS "knfm5166";               // Your WiFi password
+
+//WiFi credentials
+struct WifiCredentials{
+  String ssid;                  // Your WiFi SSID
+  String pass;                  // Your WiFi password
+  bool valid = false;           // Used to determine after boot that, if credential data in storage is valid.  
+};

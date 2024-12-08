@@ -11,10 +11,11 @@
 #include <BlynkSimpleEsp32.h>
 
 
-//WiFi credentials
 char auth[] = BLYNK_AUTH_TOKEN;
 const char *ssid = WIFI_SSID;      // Your WiFi SSID
 const char *pass = WIFI_PASS;      // Your WiFi password
+
+WifiCredentials wifiCred;
 
 //Pin Definitions
 const int magSwitchPin = 18;         // magnetic switch pin
@@ -76,35 +77,38 @@ const int buzzerFreq = 100;
 //   printWifiStatus();
 // }
 
-void setup() {
-  // Initialize Serial for debugging
-  Serial.begin(115200);
+/*
+* Performs a wifi configuration over serial terminal
+*/
+void doWifiConfig() {
   while (!Serial){} // wait for serial port to connect.
-  delay(1000);
-  Serial.println("Program started.........");
 
   //Reading SSID from terminal
   Serial.println("Enter Wifi SSID:");
   while (Serial.available() == 0) {}
   
-  String ssid = Serial.readString();
-  ssid.trim();ssid.trim();
+  wifiCred.ssid = Serial.readString();
+  wifiCred.ssid.trim(); //Remove carriage return from string
   Serial.print("Entered: ");
-  Serial.println(ssid);
+  Serial.println(wifiCred.ssid);
 
   //Reading password from terminal
   Serial.println("Enter Wifi password:");
   while (Serial.available() == 0) {}
 
-  String pass = Serial.readString();
-  pass.trim();
+  wifiCred.pass = Serial.readString();
+  wifiCred.pass.trim(); //Remove carriage return from string
   Serial.print("Entered: ");
-  Serial.println(pass);
+  Serial.println(wifiCred.pass);
 
-  // Connect to WiFi and Blynk
-  Serial.println("Connecting to WiFi and Blynk...");
-  // Blynk.begin(auth, ssid, pass);
-  Blynk.begin(auth, ssid.c_str(), pass.c_str());
+  wifiCred.valid = true; //Indicate that stored credentials are valid
+}
+
+void setup() {
+  // Initialize Serial for debugging
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("Program started.........");
 
   //Setup pins
   pinMode(magSwitchPin, INPUT);
@@ -114,6 +118,14 @@ void setup() {
   //Set initial LED state
   digitalWrite(redLEDPin, 0x00);
   digitalWrite(greenLEDPin, 0x01);
+
+  doWifiConfig(); //Perform wifi config 
+
+  // Connect to WiFi and Blynk
+  Serial.println("Connecting to WiFi and Blynk...");
+  // Blynk.begin(auth, ssid, pass);
+  Blynk.begin(auth, wifiCred.ssid.c_str(), wifiCred.pass.c_str());
+
 }
 
 void loop() {
