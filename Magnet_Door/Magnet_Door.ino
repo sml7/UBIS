@@ -13,8 +13,8 @@
 
 //WiFi credentials
 char auth[] = BLYNK_AUTH_TOKEN;
-char ssid[] = WIFI_SSID;      // Your WiFi SSID
-char pass[] = WIFI_PASS;      // Your WiFi password
+const char *ssid = WIFI_SSID;      // Your WiFi SSID
+const char *pass = WIFI_PASS;      // Your WiFi password
 
 //Pin Definitions
 const int magSwitchPin = 18;         // magnetic switch pin
@@ -79,13 +79,32 @@ const int buzzerFreq = 100;
 void setup() {
   // Initialize Serial for debugging
   Serial.begin(115200);
-  while (!Serial){ // wait for serial port to connect.
-  }
+  while (!Serial){} // wait for serial port to connect.
   delay(1000);
-  Serial.println("Serial started.");
+  Serial.println("Program started.........");
+
+  //Reading SSID from terminal
+  Serial.println("Enter Wifi SSID:");
+  while (Serial.available() == 0) {}
+  
+  String ssid = Serial.readString();
+  ssid.trim();ssid.trim();
+  Serial.print("Entered: ");
+  Serial.println(ssid);
+
+  //Reading password from terminal
+  Serial.println("Enter Wifi password:");
+  while (Serial.available() == 0) {}
+
+  String pass = Serial.readString();
+  pass.trim();
+  Serial.print("Entered: ");
+  Serial.println(pass);
+
   // Connect to WiFi and Blynk
   Serial.println("Connecting to WiFi and Blynk...");
-  Blynk.begin(auth, ssid, pass);
+  // Blynk.begin(auth, ssid, pass);
+  Blynk.begin(auth, ssid.c_str(), pass.c_str());
 
   //Setup pins
   pinMode(magSwitchPin, INPUT);

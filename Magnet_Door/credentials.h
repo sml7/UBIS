@@ -5,5 +5,5 @@
 
 // WiFi credentials
 
-#define WIFI_SSID "Mostafa's Galaxy A52";       // Your WiFi SSID
-#define WIFI_PASS "knfm5166";               // Your WiFi password
+#define WIFI_SSID "Gast-FSch"// "Mostafa's Galaxy A52";       // Your WiFi SSID
+#define WIFI_PASS "Gast*Und*Hast"//"knfm5166";               // Your WiFi password
