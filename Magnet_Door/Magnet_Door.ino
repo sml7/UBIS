@@ -80,7 +80,7 @@ const int buzzerFreq = 100;
 /*
 * Performs a wifi configuration over serial terminal
 */
-void doWifiConfig() {
+void doWifiConfig(WifiCredentials &wifiCred) {
   while (!Serial){} // wait for serial port to connect.
 
   //Reading SSID from terminal
@@ -119,7 +119,7 @@ void setup() {
   digitalWrite(redLEDPin, 0x00);
   digitalWrite(greenLEDPin, 0x01);
 
-  doWifiConfig(); //Perform wifi config 
+  doWifiConfig(wifiCred); //Perform wifi config
 
   // Connect to WiFi and Blynk
   Serial.println("Connecting to WiFi and Blynk...");
