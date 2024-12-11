@@ -9,7 +9,7 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
-
+#include "persistence.h"
 
 char auth[] = BLYNK_AUTH_TOKEN;
 const char *ssid = WIFI_SSID;      // Your WiFi SSID
@@ -77,6 +77,33 @@ const int buzzerFreq = 100;
 //   printWifiStatus();
 // }
 
+static void inputStringFromSerial(
+            String &input, 
+            short maxLength, 
+            String enterMsg = "Please enter something: ", 
+            bool enteredMsg = true, 
+            bool trim = true) {
+  do {
+    Serial.println(enterMsg);
+    while (Serial.available() == 0) {}
+
+    String read = Serial.readString();
+    if(!read.length() > maxLength) {
+      input = read;
+      break;
+    }
+    Serial.println("Error: Input exceeds maximum allowed size. Try again.");
+  }
+  while(true)
+  if(trim)
+    input.trim(); //Remove carriage return from string
+  if(enteredMsg) {
+    Serial.print("Entered: ");
+    Serial.println(wifiCred.ssid);
+  }
+}
+
+
 /*
 * Performs a wifi configuration over serial terminal
 */
@@ -84,31 +111,30 @@ void doWifiConfig(WifiCredentials &wifiCred) {
   while (!Serial){} // wait for serial port to connect.
 
   //Reading SSID from terminal
-  Serial.println("Enter Wifi SSID:");
-  while (Serial.available() == 0) {}
-  
-  wifiCred.ssid = Serial.readString();
-  wifiCred.ssid.trim(); //Remove carriage return from string
-  Serial.print("Entered: ");
-  Serial.println(wifiCred.ssid);
+  inputFromSerial(
+      wifiCred.ssid, 
+      SSID_MAX_SIZE, 
+      "Enter WiFi SSID:");
 
   //Reading password from terminal
-  Serial.println("Enter Wifi password:");
-  while (Serial.available() == 0) {}
+  inputFromSerial(
+      wifiCred.pass, 
+      PASS_MAX_SIZE, 
+      "Enter WiFi password:");
 
-  wifiCred.pass = Serial.readString();
-  wifiCred.pass.trim(); //Remove carriage return from string
-  Serial.print("Entered: ");
-  Serial.println(wifiCred.pass);
-
-  wifiCred.valid = true; //Indicate that stored credentials are valid
+  // if(storeWifiConfig(wifiCred)) {
+  //   Serial.print("WiFi credentials stored successfully.");
+  // }
+  // else {
+  //   Serial.print("Error: Storing of WiFi credentials failed!");
+  // }
 }
 
 void setup() {
-  // Initialize Serial for debugging
-  Serial.begin(115200);
+  Serial.begin(115200); //Initialize Serial
   delay(1000);
   Serial.println("Program started.........");
+  initMemory();
 
   //Setup pins
   pinMode(magSwitchPin, INPUT);
@@ -120,12 +146,12 @@ void setup() {
   digitalWrite(greenLEDPin, 0x01);
 
   doWifiConfig(wifiCred); //Perform wifi config
+  
 
   // Connect to WiFi and Blynk
   Serial.println("Connecting to WiFi and Blynk...");
   // Blynk.begin(auth, ssid, pass);
   Blynk.begin(auth, wifiCred.ssid.c_str(), wifiCred.pass.c_str());
-
 }
 
 void loop() {
@@ -133,48 +159,48 @@ void loop() {
   //   Serial.println("Connection lost. Try to reconnect.");
   //   Blynk.connect();
   // }
-  Blynk.run();
+  // Blynk.run();
 
-  doorOpen = digitalRead(magSwitchPin);
+  // doorOpen = digitalRead(magSwitchPin);
   
-  // Serial.print("Sensor Value: ");
-  // Serial.println(doorOpen);
-  // delay(2000);
+  // // Serial.print("Sensor Value: ");
+  // // Serial.println(doorOpen);
+  // // delay(2000);
 
-  // Check if sensor value is below threshold to indicate door is opened
-  if (lastDoorOpen != doorOpen && (millis() - lastNotificationTime >= notificationInterval)) {
-    lastDoorOpen = doorOpen;
-    if(doorOpen) {
-      Serial.println("Door was opened");
+  // // Check if sensor value is below threshold to indicate door is opened
+  // if (lastDoorOpen != doorOpen && (millis() - lastNotificationTime >= notificationInterval)) {
+  //   lastDoorOpen = doorOpen;
+  //   if(doorOpen) {
+  //     Serial.println("Door was opened");
 
-      // Trigger the event for notification in Blynk
-      Blynk.logEvent("door_opened", "Looks like someone's opened the door");
+  //     // Trigger the event for notification in Blynk
+  //     Blynk.logEvent("door_opened", "Looks like someone's opened the door");
 
-      //Update status LEDs
-      digitalWrite(redLEDPin, 0x01);
-      digitalWrite(greenLEDPin, 0x00);
+  //     //Update status LEDs
+  //     digitalWrite(redLEDPin, 0x01);
+  //     digitalWrite(greenLEDPin, 0x00);
 
-      //acoustic signal
-      tone(buzzerPin, buzzerFreq);
-      delay(1000);
-      noTone(buzzerPin);
-    }
-    else {
-      Serial.println("Door was closed");
+  //     //acoustic signal
+  //     tone(buzzerPin, buzzerFreq);
+  //     delay(1000);
+  //     noTone(buzzerPin);
+  //   }
+  //   else {
+  //     Serial.println("Door was closed");
 
-      // Trigger the event for notification in Blynk
-      Blynk.logEvent("door_closed", "Looks like someone's closed the door");
+  //     // Trigger the event for notification in Blynk
+  //     Blynk.logEvent("door_closed", "Looks like someone's closed the door");
 
-      //Update status LEDs
-      digitalWrite(redLEDPin, 0x00);
-      digitalWrite(greenLEDPin, 0x01);
+  //     //Update status LEDs
+  //     digitalWrite(redLEDPin, 0x00);
+  //     digitalWrite(greenLEDPin, 0x01);
 
-      //acoustic signal
-      tone(buzzerPin, buzzerFreq);
-      delay(1000);
-      noTone(buzzerPin);
-    }
-    // Update the time of the last notification
-    lastNotificationTime = millis();
-  }
+  //     //acoustic signal
+  //     tone(buzzerPin, buzzerFreq);
+  //     delay(1000);
+  //     noTone(buzzerPin);
+  //   }
+  //   // Update the time of the last notification
+  //   lastNotificationTime = millis();
+  // }
 }

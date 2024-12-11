@@ -12,5 +12,12 @@
 struct WifiCredentials{
   String ssid;                  // Your WiFi SSID
   String pass;                  // Your WiFi password
-  bool valid = false;           // Used to determine after boot that, if credential data in storage is valid.  
+
+  /*
+  * Used to determine after boot that, if credential data in storage is valid.  
+  */
+  bool confEmpty() {
+    return (!ssid.isEmpty() && !pass.isEmpty());
+  }
+  bool valid = false;           
 };
