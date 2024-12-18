@@ -14,8 +14,9 @@
 
 //======Pin Definitons======
 const int magSwitchPin = 18;         // magnetic switch pin
-const int redLEDPin = 22;            // red pin
-const int greenLEDPin = 19;          // green pin
+const int redLEDPin = 22;            // door closed status LED pin
+const int greenLEDPin = 19;          // door opened status LED pin
+const int connLEDPin = 5;            // Connection status LED pin
 const int buzzerPin = 23;            // buzzer pin
 
 //======Data Types======
@@ -41,6 +42,8 @@ const unsigned long notificationInterval = 1000; // 15 seconds
 //Door state
 bool doorOpen = false;
 bool lastDoorOpen = false;
+
+hw_timer_t * connStatusTimer = NULL; //Hardware timer to handle connection status LED update task
 
 //Current state of the system FSM
 SystemState state;
@@ -92,7 +95,9 @@ SystemState state;
 // }
 
 /*
-* Performs a WiFi configuration over serial terminal
+* Performs a WiFi configuration over serial terminal.
+* Stores the new configuration into flash memory.
+* @param wifiCred The WiFi configuration in memory, which has to be updated.
 */
 static bool doWifiConfig(WifiCredentials &wifiCred) {
   //Reading SSID from terminal
@@ -208,6 +213,7 @@ bool processCommand() {
     else if(command == "Unconnect" && state != Offline) {
       if(state != Offline) {
         Serial.println("-----------Going offline-----------");
+        digitalWrite(connLEDPin, 0x01); //update connection status led
         state = Offline; return true;
       }
       else {
@@ -234,6 +240,33 @@ bool processCommand() {
   return false;
 }
 
+/*
+* Starts the blinking process of the connection status LED.
+* Uses a hardware timer, which executes the LED toggling routine periodically.
+* Can execute the LED blinking in parallel to other tasks.
+*/
+static void startConnLEDBlink() {
+  uint64_t alarmLimit = 1500000; 
+  connStatusTimer = timerBegin(1000000); // timer frequency
+  timerAttachInterrupt(connStatusTimer, &doConnLEDBBlink);
+  timerAlarm(connStatusTimer, alarmLimit, true, 0);
+}
+
+/*
+* Stops the blinking process of the connection status LED.
+*/
+static void endConnLEDBlink() {
+  timerEnd(connStatusTimer); //Stop blinking
+  connStatusTimer = NULL;
+}
+
+/*
+* Implements LED toggling.
+*/
+void doConnLEDBBlink() {
+  digitalWrite(connLEDPin, !digitalRead(connLEDPin));
+}
+
 void setup() {
   Serial.begin(115200); //Initialize Serial
   delay(1000); //Wait for serial to become ready
@@ -247,10 +280,12 @@ void setup() {
   pinMode(magSwitchPin, INPUT);
   pinMode(redLEDPin, OUTPUT);
   pinMode(greenLEDPin, OUTPUT);
+  pinMode(connLEDPin, OUTPUT);
 
   //Set initial LED state
   digitalWrite(redLEDPin, 0x00);
   digitalWrite(greenLEDPin, 0x01);
+  digitalWrite(connLEDPin, 0x01);
 
   //load currently saved config
   loadWifiConfig(wifiCred);
@@ -272,6 +307,7 @@ void loop() {
           else if(answer == "N" || answer == "n") {
             Serial.println("  >> Answer: No");
             Serial.println("-----------Going offline-----------");
+            digitalWrite(connLEDPin, 0x01); //update connection status led
             state = Offline;
             break;
           }
@@ -304,8 +340,11 @@ void loop() {
     case Connect:
       if(!wifiCred.pass.isEmpty() && !wifiCred.ssid.isEmpty()) {
         Serial.println("-----------Connecting to WiFi and Blynk-----------");
+        startConnLEDBlink();
         Blynk.begin(BLYNK_AUTH_TOKEN, wifiCred.ssid.c_str(), wifiCred.pass.c_str());
         Serial.println("-----------Going online-----------");
+        endConnLEDBlink();
+        digitalWrite(connLEDPin, 0x00); //update connection status led
         state = Online; 
         break;
       }
@@ -323,6 +362,7 @@ void loop() {
             else if(answer == "N" || answer == "n") {
               Serial.println("  >> Answer: No");
               Serial.println("-----------Going offline-----------");
+              digitalWrite(connLEDPin, 0x01); //update connection status led
               state = Offline;
               break;
             }
