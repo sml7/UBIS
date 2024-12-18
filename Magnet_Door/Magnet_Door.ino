@@ -18,6 +18,8 @@ const int redLEDPin = 22;            // door closed status LED pin
 const int greenLEDPin = 19;          // door opened status LED pin
 const int connLEDPin = 5;            // Connection status LED pin
 const int buzzerPin = 23;            // buzzer pin
+const int innerLBarrPin = 16;         // inner light barrier pin
+const int outerLBarrPin = 17;         // outer light barrier pin
 
 //======Data Types======
 
@@ -28,6 +30,18 @@ enum SystemState {
   Config,
   Connect,
   Online,
+};
+
+enum PassState {
+  Idle,
+  StartEntering,
+  Entering1,
+  Entering2,
+  Entered,
+  StartLeaving,
+  Leaving1,
+  Leaving2,
+  Left
 };
 
 //======Globals======
@@ -46,7 +60,15 @@ bool lastDoorOpen = false;
 hw_timer_t * connStatusTimer = NULL; //Hardware timer to handle connection status LED update task
 
 //Current state of the system FSM
-SystemState state;
+SystemState sysState;
+
+//Current door passing state
+PassState passState;
+
+//To monitor number of persons in the room
+uint8_t personCount = 0;
+uint8_t maxPersonCount = 3;
+bool roomFull = false;
 
 //======Function implementations======
 
@@ -144,17 +166,13 @@ static void doDoorStateChangedAcousticSignal() {
 * @param online If set to true, will be in online mode.
 */
 static void doDoorStatusCheck(bool online = false) {
-  if(online) {
-    Blynk.run();
-  }
-
   doorOpen = digitalRead(magSwitchPin);
 
   // Check if sensor value is below threshold to indicate door is opened
   if (lastDoorOpen != doorOpen && (millis() - lastNotificationTime >= notificationInterval)) {
     lastDoorOpen = doorOpen;
     if(doorOpen) {
-      Serial.println("Door state changed to: opened");
+      Serial.println("Door state change event: opened");
 
       if(online) {
         // Trigger the event for notification in Blynk
@@ -169,7 +187,7 @@ static void doDoorStatusCheck(bool online = false) {
       doDoorStateChangedAcousticSignal();
     }
     else {
-      Serial.println("Door state changed to: closed");
+      Serial.println("Door state change event: closed");
 
       if(online) {
         // Trigger the event for notification in Blynk
@@ -198,28 +216,28 @@ bool processCommand() {
   if(readStringFromSerial(command)) { //Check serial input
     //If command was received from serial process it
     if(command == "Config") {
-      state = Config; return true;
+      sysState = Config; return true;
     }
-    else if(command == "Connect" && state != Online) {
-      if(state != Online) {
-        state = Connect; return true;
+    else if(command == "Connect" && sysState != Online) {
+      if(sysState != Online) {
+        sysState = Connect; return true;
       }
       else {
         Serial.print("Info: Command unnecessary: ");
         Serial.println(command);
-        Serial.print("  >> Reason: Already in Online mode.");
+        Serial.println("  >> Reason: Already in Online mode.");
       }
     }
-    else if(command == "Unconnect" && state != Offline) {
-      if(state != Offline) {
+    else if(command == "Unconnect" && sysState != Offline) {
+      if(sysState != Offline) {
         Serial.println("-----------Going offline-----------");
         digitalWrite(connLEDPin, 0x01); //update connection status led
-        state = Offline; return true;
+        sysState = Offline; return true;
       }
       else {
         Serial.print("Info: Command unnecessary: ");
         Serial.println(command);
-        Serial.print("  >> Reason: Already in Offline mode.");
+        Serial.println("  >> Reason: Already in Offline mode.");
       }
     }
     else if(command == "Clear") {
@@ -273,11 +291,13 @@ void setup() {
   Serial.println("-----------Program started-----------");
   initMemory();
 
-  //Set inital state
-  state = Init;
+  //Set inital system state
+  sysState = Init;
 
   //Setup pins
   pinMode(magSwitchPin, INPUT);
+  pinMode(outerLBarrPin, INPUT);
+  pinMode(innerLBarrPin, INPUT);
   pinMode(redLEDPin, OUTPUT);
   pinMode(greenLEDPin, OUTPUT);
   pinMode(connLEDPin, OUTPUT);
@@ -291,9 +311,202 @@ void setup() {
   loadWifiConfig(wifiCred);
 }
 
+/*
+* Assumes that only one person can pass the door at the same time.
+*/
+void doDoorPassingCheck(bool online = false) {
+  // Serial.print("Is passing: ");
+  // Serial.print(isPassingOuter());
+  // Serial.print(" ");
+  // Serial.println(isPassingInner());
+  switch(passState) {
+    case Idle:
+      if(isPassingOuter()) {
+        //Someone starts to enter
+        passState = StartEntering;
+      }
+      else if(isPassingInner()) {
+        //Someone starts to leave
+        passState = StartLeaving;
+      }
+      break;
+    case StartEntering:
+     if(isPassingBoth()) {
+      //Someone who enters steped further in and now passes both barriers at the same time
+      passState = Entering1;
+     }
+     else if(noPassing()) {
+      //Someone decided to step back from entering
+      passState = Idle;
+     }
+     else if(isPassingInner()) {
+      //Passing only the inner barrier is not allowed in this state.
+      Serial.println("Error: During entering event!");
+      Serial.println("  >> Reason: Only inner barrier is passed, but both barriers were not passed before.");
+      Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
+      passState = Idle;
+     }
+     break;
+    case Entering1:
+      if(isPassingInner()) {
+        //Someone who enters steped further in and now passes only the inner barrier
+        passState = Entering2;
+      }
+      else if(isPassingOuter()) {
+        //Someone decided to step back
+        passState = StartEntering;
+      }
+      else if(noPassing()) {
+        //No passing of any barrier is not allowed in this state.
+        Serial.println("Error: During entering event!");
+        Serial.println("  >> Reason: Both barriers were passed, but now no barrier is passed.");
+        Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
+        passState = Idle;
+      }
+      break;
+    case Entering2:
+     if(noPassing()) {
+      //Someone finished entering
+      passState = Entered;
+     }
+     else if(isPassingBoth()) {
+      //Someone decided to step back
+      passState = Entering1;
+     }
+     else if(isPassingOuter()) {
+      //Passing only the outer barrier is not allowed in this state.
+      Serial.println("Error: During entering event!");
+      Serial.println("  >> Reason: Someone passed the inner barrier, but now only the outer barrier is passed.");
+      Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
+      passState = Idle;
+     }
+     break;
+    case Entered:
+      if(personCount < maxPersonCount) {
+        personCount++;
+        Serial.println("Passing event: Someone entered.");
+        Serial.print("  >> Current load: ");
+        Serial.println(personCount);
+      }
+      else {
+        Serial.println("Error: During entering event!");
+        Serial.println("  >> Reason: Room is already full.");
+        Serial.println("  >> Result: Falling back to idle.");
+      }
+      passState = Idle;
+      break;
+    case StartLeaving:
+      if(isPassingBoth()) {
+        //Someone who is leaving steped further out and now passes both barriers at the same time
+        passState = Leaving1;
+      }
+      else if(noPassing()) {
+        //Someone decided to step back from leaving
+        passState = Idle;
+      }
+      else if(isPassingOuter()) {
+        //Passing only the outer barrier is not allowed in this state.
+        Serial.println("Error: During leaving event!");
+        Serial.println("  >> Reason: Only outer barrier is passed, but both barriers were not passed before.");
+        Serial.println("  >> Result: Could not detect leaving correctly. Falling back to idle.");
+        passState = Idle;
+      }
+      break;
+    case Leaving1:
+      if(isPassingOuter()) {
+        //Someone who is leaving steped further out and now passes only the outer barrier
+        passState = Leaving2;
+      }
+      else if(isPassingInner()) {
+        //Someone decided to step back
+        passState = StartLeaving;
+      }
+      else if(noPassing()) {
+        //No passing of any barrier is not allowed in this state.
+        Serial.println("Error: During leaving event!");
+        Serial.println("  >> Reason: Both barriers were passed, but now no barrier is passed.");
+        Serial.println("  >> Result: Could not detect leaving correctly. Falling back to idle.");
+        passState = Idle;
+      }
+      break;
+    case Leaving2:
+      if(noPassing()) {
+        //Someone finished leaving
+        passState = Left;
+      }
+      else if(isPassingBoth()) {
+        //Someone decided to step back
+        passState = Leaving1;
+      }
+      else if(isPassingInner()) {
+        //Passing only the inner barrier is not allowed in this state.
+        Serial.println("Error: During leaving event!");
+        Serial.println("  >> Reason: Someone passed the outer barrier, but now only the inner barrier is passed.");
+        Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
+        passState = Idle;
+      }
+      break;
+    case Left:
+      if(!(personCount == 0)) {
+      personCount--;
+        Serial.println("Passing event: Someone left.");
+        Serial.print("  >> Current load: ");
+        Serial.println(personCount);
+      }
+      else {
+        Serial.println("Error: During leaving event!");
+        Serial.println("  >> Reason: Room was already empty.");
+        Serial.println("  >> Result: Falling back to idle.");
+      }
+      passState = Idle;
+      break;
+  }
+
+  if(!roomFull && personCount >= maxPersonCount) {
+    Serial.println("Alert: Room is full.");
+    roomFull = true;
+    if(online) {
+        // Trigger the event for notification in Blynk
+        Blynk.logEvent("room_full", "Room is full now.");
+    }
+  }
+  else if(roomFull && personCount < maxPersonCount) {
+    Serial.println("Alert: Room is no longer full.");
+    roomFull = false;
+    if(online) {
+        // Trigger the event for notification in Blynk
+        Blynk.logEvent("room_not_full", "Room is no longer full.");
+    }
+  }
+}
+
+inline bool isPassingOuter() {
+  if(!digitalRead(outerLBarrPin) && digitalRead(innerLBarrPin)) 
+    return true;
+  return false;
+}
+
+inline bool isPassingInner() {
+  if(digitalRead(outerLBarrPin) && !digitalRead(innerLBarrPin)) 
+    return true;
+  return false;
+}
+
+inline bool isPassingBoth() {
+  if(!digitalRead(outerLBarrPin) && !digitalRead(innerLBarrPin)) 
+    return true;
+  return false;
+}
+
+inline bool noPassing() {
+  if(digitalRead(outerLBarrPin) && digitalRead(innerLBarrPin)) 
+    return true;
+  return false;
+}
+
 void loop() {
   //Determine next state of the system FSM
-  switch(state) {
+  switch(sysState) {
     case Init: {
       printConnectionQuestion();
       String answer;
@@ -301,14 +514,14 @@ void loop() {
         if(readStringFromSerial(answer)) {
           if(answer == "" || answer == "Y" || answer == "y") { //Yes is default answer
             Serial.println("  >> Answer: Yes");
-            state = Connect; 
+            sysState = Connect; 
             break;
           }
           else if(answer == "N" || answer == "n") {
             Serial.println("  >> Answer: No");
             Serial.println("-----------Going offline-----------");
             digitalWrite(connLEDPin, 0x01); //update connection status led
-            state = Offline;
+            sysState = Offline;
             break;
           }
           else {
@@ -320,9 +533,10 @@ void loop() {
       break;
     }
     case Offline:
-      if(!processCommand()) { //Ceck if command is inputted and process it
+      if(!processCommand()) { //Check if command is inputted and process it
         //In case no command to process
         doDoorStatusCheck();
+        doDoorPassingCheck();
       }
       break;
     case Config:
@@ -330,11 +544,11 @@ void loop() {
       if(doWifiConfig(wifiCred)) {
         Serial.print("  >> WiFi credentials stored successfully.");
         loadWifiConfig(wifiCred); //load new config
-        state = Connect;
+        sysState = Connect;
       }
       else {
         Serial.print("Error: Storing of WiFi credentials failed!");
-        state = Offline;
+        sysState = Offline;
       }
       break;
     case Connect:
@@ -345,7 +559,7 @@ void loop() {
         Serial.println("-----------Going online-----------");
         endConnLEDBlink();
         digitalWrite(connLEDPin, 0x00); //update connection status led
-        state = Online; 
+        sysState = Online; 
         break;
       }
       else {
@@ -356,14 +570,14 @@ void loop() {
           if(readStringFromSerial(answer)) {
             if(answer == "" || answer == "Y" || answer == "y") { //Yes is default answer
               Serial.println("  >> Answer: Yes");
-              state = Config; 
+              sysState = Config; 
               break;
             }
             else if(answer == "N" || answer == "n") {
               Serial.println("  >> Answer: No");
               Serial.println("-----------Going offline-----------");
               digitalWrite(connLEDPin, 0x01); //update connection status led
-              state = Offline;
+              sysState = Offline;
               break;
             }
             else {
@@ -375,9 +589,11 @@ void loop() {
       }
       break;
     case Online:
-      if(!processCommand()) { //Ceck if command is inputted and process it
+      Blynk.run();
+      if(!processCommand()) { //Check if command is inputted and process it
         //In case no command to process
         doDoorStatusCheck(true);
+        doDoorPassingCheck(true);
       }
       break;
   }
