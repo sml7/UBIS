@@ -137,6 +137,12 @@ static bool doWifiConfig(WifiCredentials &wifiCred) {
   return storeWifiConfig(wifiCred);
 }
 
+inline static void updateEntranceStatusLEDs(bool ent) {
+  //inverted logic
+  digitalWrite(redLEDPin, ent);
+  digitalWrite(greenLEDPin, !ent);
+}
+
 /*
 * Prints the current configured WiFi credentials and
 * asks the user if a connection should be established 
@@ -176,12 +182,12 @@ static void doDoorStatusCheck(bool online = false) {
 
       if(online) {
         // Trigger the event for notification in Blynk
-        Blynk.logEvent("door_opened", "You can come in.");
+        Blynk.logEvent("door_opened", "Info: You can come in.");
       }
 
-      //Update status LEDs
-      digitalWrite(redLEDPin, 0x01);
-      digitalWrite(greenLEDPin, 0x00);
+      if(!roomFull) {
+        updateEntranceStatusLEDs(true);
+      }
 
       //acoustic signal
       doDoorStateChangedAcousticSignal();
@@ -191,13 +197,17 @@ static void doDoorStatusCheck(bool online = false) {
 
       if(online) {
         // Trigger the event for notification in Blynk
-        Blynk.logEvent("door_closed", "Room was closed.");
+        Blynk.logEvent("door_closed", "Info: Room was closed.");
       }
 
-      //Update status LEDs
-      digitalWrite(redLEDPin, 0x00);
-      digitalWrite(greenLEDPin, 0x01);
+      if(personCount > 0) {
+        Serial.println("Alert: There are still persons in the room!");
+        if(online) {
+          Blynk.logEvent("alert_persons", "Alert: There are still persons in the room!");
+        }
+      }
 
+      updateEntranceStatusLEDs(false);
       doDoorStateChangedAcousticSignal();
     }
     // Update the time of the last notification
@@ -303,9 +313,8 @@ void setup() {
   pinMode(connLEDPin, OUTPUT);
 
   //Set initial LED state
-  digitalWrite(redLEDPin, 0x00);
-  digitalWrite(greenLEDPin, 0x01);
-  digitalWrite(connLEDPin, 0x01);
+  updateEntranceStatusLEDs(false);
+  digitalWrite(connLEDPin, HIGH);
 
   //load currently saved config
   loadWifiConfig(wifiCred);
@@ -467,16 +476,18 @@ void doDoorPassingCheck(bool online = false) {
     roomFull = true;
     if(online) {
         // Trigger the event for notification in Blynk
-        Blynk.logEvent("room_full", "Room is full now.");
+        Blynk.logEvent("room_full", "Alert: Room is full now.");
     }
+    updateEntranceStatusLEDs(false);
   }
   else if(roomFull && personCount < maxPersonCount) {
-    Serial.println("Alert: Room is no longer full.");
+    Serial.println("Info: Room is no longer full.");
     roomFull = false;
     if(online) {
         // Trigger the event for notification in Blynk
-        Blynk.logEvent("room_not_full", "Room is no longer full.");
+        Blynk.logEvent("room_not_full", "Info: Room is no longer full.");
     }
+    updateEntranceStatusLEDs(true);
   }
 }
 
@@ -536,7 +547,9 @@ void loop() {
       if(!processCommand()) { //Check if command is inputted and process it
         //In case no command to process
         doDoorStatusCheck();
-        doDoorPassingCheck();
+        if(doorOpen) {
+          doDoorPassingCheck();
+        }
       }
       break;
     case Config:
@@ -593,7 +606,9 @@ void loop() {
       if(!processCommand()) { //Check if command is inputted and process it
         //In case no command to process
         doDoorStatusCheck(true);
-        doDoorPassingCheck(true);
+        if(doorOpen) {
+          doDoorPassingCheck(true);
+        }
       }
       break;
   }
