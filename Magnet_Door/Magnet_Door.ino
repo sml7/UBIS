@@ -30,6 +30,7 @@ enum SystemState {
   Config,
   Connect,
   Online,
+  Reconnect
 };
 
 enum PassState {
@@ -51,7 +52,7 @@ WifiCredentials wifiCred;
 
 //Notification
 unsigned long lastNotificationTime = 0; // For timer control
-const unsigned long notificationInterval = 1000; // 15 seconds
+const unsigned long notificationInterval = 1000; // 1 second
 
 //Door state
 bool doorOpen = false;
@@ -66,9 +67,13 @@ SystemState sysState;
 PassState passState;
 
 //To monitor number of persons in the room
-uint8_t personCount = 0;
-uint8_t maxPersonCount = 3;
-bool roomFull = false;
+uint8_t personCount = 0;    //number of persons
+uint8_t maxPersonCount = 3; //maximum number of persons
+bool roomFull = false;      //If number of persons inside the room has reached the maximum.
+
+
+unsigned long lastTimeOnline = 0; //Record of last time the system was online.
+#define CONN_TIMEOUT 20000        //Timeout until the system tries to reconnect.
 
 //======Function implementations======
 
@@ -88,6 +93,34 @@ bool roomFull = false;
 //   Serial.print(rssi);
 //   Serial.println(" dBm");
 // }
+
+wl_status_t connectWiFi(const char* ssid, const char* pass)
+{
+    BLYNK_LOG2(BLYNK_F("Connecting to "), ssid);
+    WiFi.mode(WIFI_STA);
+    if (pass && strlen(pass)) {
+        WiFi.begin(ssid, pass);
+    } else {
+        WiFi.begin(ssid);
+    }
+    uint16_t wait = 0;
+    const uint16_t delay = 500;
+    wl_status_t wifiStatus = WiFi.status();
+    while (wifiStatus != WL_CONNECTED) {
+        if(wait > CONN_TIMEOUT) {
+          return wifiStatus;
+        }
+        wait += delay;
+        BlynkDelay(delay);
+        wifiStatus = WiFi.status();
+    }
+    BLYNK_LOG1(BLYNK_F("Connected to WiFi"));
+
+    IPAddress myip = WiFi.localIP();
+    (void)myip; // Eliminate warnings about unused myip
+    BLYNK_LOG_IP("IP: ", myip);
+    return WL_CONNECTED;
+}
 
 // void connectToWiFi(){
 //   // check for the WiFi module:
@@ -238,8 +271,9 @@ bool processCommand() {
         Serial.println("  >> Reason: Already in Online mode.");
       }
     }
-    else if(command == "Unconnect" && sysState != Offline) {
+    else if(command == "Disconnect" && sysState != Offline) {
       if(sysState != Offline) {
+        Blynk.disconnect();
         Serial.println("-----------Going offline-----------");
         digitalWrite(connLEDPin, 0x01); //update connection status led
         sysState = Offline; return true;
@@ -555,12 +589,12 @@ void loop() {
     case Config:
       Serial.println("-----------WiFi Configuration-----------");
       if(doWifiConfig(wifiCred)) {
-        Serial.print("  >> WiFi credentials stored successfully.");
+        Serial.println("  >> WiFi credentials stored successfully.");
         loadWifiConfig(wifiCred); //load new config
         sysState = Connect;
       }
       else {
-        Serial.print("Error: Storing of WiFi credentials failed!");
+        Serial.println("Error: Storing of WiFi credentials failed!");
         sysState = Offline;
       }
       break;
@@ -568,11 +602,42 @@ void loop() {
       if(!wifiCred.pass.isEmpty() && !wifiCred.ssid.isEmpty()) {
         Serial.println("-----------Connecting to WiFi and Blynk-----------");
         startConnLEDBlink();
-        Blynk.begin(BLYNK_AUTH_TOKEN, wifiCred.ssid.c_str(), wifiCred.pass.c_str());
-        Serial.println("-----------Going online-----------");
+        wl_status_t wifiStatus = connectWiFi(wifiCred.ssid.c_str(), wifiCred.pass.c_str());
+        if(wifiStatus == WL_CONNECTED) {
+          Blynk.config(BLYNK_AUTH_TOKEN);
+          if(Blynk.connect(CONN_TIMEOUT)) {
+            //Successfully connected
+            Serial.println("-----------Going online-----------");
+            endConnLEDBlink();
+            digitalWrite(connLEDPin, LOW); //update connection status led
+            lastTimeOnline = millis();
+            sysState = Online;
+            break;
+          }
+          else {
+            //Failed to connect to server
+            Serial.println("Alert: Connection to server failed.");
+          }
+        }
+        else {
+          //Failed to connect to WiFi
+          Serial.println("Alert: Connection to WiFi failed.");
+          if(wifiStatus == WL_NO_SSID_AVAIL) {
+            Serial.println("  >> Reason: SSID not available.");
+          }
+          else if(wifiStatus == WL_DISCONNECTED) {
+            Serial.println("  >> Reason: Authentication failed.");
+          }
+          else {
+            Serial.print("  >> Reason: WiFi status code: ");
+            Serial.println(wifiStatus);
+          }
+        }
+        Serial.println("  >> Result: Falling back to offline mode.");
+        Serial.println("-----------Going offline-----------");
+        sysState = Offline;
         endConnLEDBlink();
-        digitalWrite(connLEDPin, 0x00); //update connection status led
-        sysState = Online; 
+        digitalWrite(connLEDPin, HIGH); //update connection status led
         break;
       }
       else {
@@ -602,13 +667,53 @@ void loop() {
       }
       break;
     case Online:
-      Blynk.run();
-      if(!processCommand()) { //Check if command is inputted and process it
-        //In case no command to process
-        doDoorStatusCheck(true);
-        if(doorOpen) {
-          doDoorPassingCheck(true);
+      if(Blynk.run()) {
+        //Connected
+        lastTimeOnline = millis();
+        if(!processCommand()) { //Check if command is inputted and process it
+          //In case no command to process
+          doDoorStatusCheck(true);
+          if(doorOpen) {
+            doDoorPassingCheck(true);
+          }
         }
+      }
+      else {
+        //Connection lost. Try to reconnect.
+        Serial.println("Alert: Connection lost. Try to reconnect.");
+        startConnLEDBlink();
+        sysState = Reconnect;
+      }
+      break;
+    case Reconnect:
+      if(millis() - lastTimeOnline <= CONN_TIMEOUT) {
+        if(Blynk.connected()) {
+          //Connection reestablished
+          Serial.println("Info: Connection reestablished.");
+          lastTimeOnline = millis();
+          sysState = Online;
+          endConnLEDBlink();
+          digitalWrite(connLEDPin, LOW); //update connection status led
+        }
+        else {
+          //Connection still lost. Try to reconnect.
+          Blynk.run();
+          if(!processCommand()) { //Check if command is inputted and process it
+            //In case no command to process
+            doDoorStatusCheck(true);
+            if(doorOpen) {
+              doDoorPassingCheck(true);
+            }
+          }
+        }
+      }
+      else {
+        //Connection still lost after timeout. Falling back to offline mode.
+        Serial.println("Alert: Connection Timout. Falling back to offline mode.");
+        Serial.println("-----------Going offline-----------");
+        sysState = Offline;
+        endConnLEDBlink();
+        digitalWrite(connLEDPin, HIGH); //update connection status led
       }
       break;
   }
