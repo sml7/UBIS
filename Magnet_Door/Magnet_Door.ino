@@ -13,13 +13,14 @@
 #include "serial_access.h"
 
 //======Pin Definitons======
-const int magSwitchPin = 18;         // magnetic switch pin
-const int redLEDPin = 22;            // door closed status LED pin
-const int greenLEDPin = 19;          // door opened status LED pin
-const int connLEDPin = 5;            // Connection status LED pin
-const int buzzerPin = 23;            // buzzer pin
-const int innerLBarrPin = 16;         // inner light barrier pin
-const int outerLBarrPin = 17;         // outer light barrier pin
+#define magSwitchPin 18          // magnetic switch pin
+#define redLEDPin 22             // door closed status LED pin
+#define greenLEDPin 19           // door opened status LED pin
+#define connLEDPin 5             // Connection status LED pin
+#define buzzerPin 23             // buzzer pin
+#define innerLBarrPin 16         // inner light barrier pin
+#define outerLBarrPin 17         // outer light barrier pin
+#define connButtonPin 4          // the connection button pin
 
 //======Data Types======
 
@@ -74,6 +75,9 @@ bool roomFull = false;      //If number of persons inside the room has reached t
 
 unsigned long lastTimeOnline = 0; //Record of last time the system was online.
 #define CONN_TIMEOUT 20000        //Timeout until the system tries to reconnect.
+
+//Records the last time the connection button was pressed
+unsigned long lastConnUnpressed = 0;
 
 //======Function implementations======
 
@@ -336,12 +340,13 @@ void setup() {
   initMemory();
 
   //Set inital system state
-  sysState = Init;
+  sysState = Offline;
 
   //Setup pins
   pinMode(magSwitchPin, INPUT);
   pinMode(outerLBarrPin, INPUT);
   pinMode(innerLBarrPin, INPUT);
+  pinMode(connButtonPin, INPUT);
   pinMode(redLEDPin, OUTPUT);
   pinMode(greenLEDPin, OUTPUT);
   pinMode(connLEDPin, OUTPUT);
@@ -549,42 +554,38 @@ inline bool noPassing() {
   return false;
 }
 
+static void doMainRoutine(bool online = false) {
+  if(!processCommand()) { //Check if command is inputted and process it
+    // //In case no command to process
+    if(digitalRead(connButtonPin) == HIGH) {//Check if connection button pressed
+      //If not pressed
+      lastConnUnpressed = millis();
+    }
+    else {
+      //If pressed
+      if(millis() - lastConnUnpressed > 500) { //Checks if button is pressed for at least 0.5 seconds
+        lastConnUnpressed = millis();
+        if(online) {
+          Serial.println("-----------Going offline-----------");
+          sysState = Offline;
+        }
+        else {
+          sysState = Connect;
+        }
+      }
+    }
+    doDoorStatusCheck(online);
+    if(doorOpen) {
+      doDoorPassingCheck(online);
+    }
+  }
+}
+
 void loop() {
   //Determine next state of the system FSM
   switch(sysState) {
-    case Init: {
-      printConnectionQuestion();
-      String answer;
-      do {
-        if(readStringFromSerial(answer)) {
-          if(answer == "" || answer == "Y" || answer == "y") { //Yes is default answer
-            Serial.println("  >> Answer: Yes");
-            sysState = Connect; 
-            break;
-          }
-          else if(answer == "N" || answer == "n") {
-            Serial.println("  >> Answer: No");
-            Serial.println("-----------Going offline-----------");
-            digitalWrite(connLEDPin, 0x01); //update connection status led
-            sysState = Offline;
-            break;
-          }
-          else {
-            Serial.println("Error: This is not the right answer! Try again.");
-          }
-        }
-      }
-      while(true); //Waits until answer was given
-      break;
-    }
     case Offline:
-      if(!processCommand()) { //Check if command is inputted and process it
-        //In case no command to process
-        doDoorStatusCheck();
-        if(doorOpen) {
-          doDoorPassingCheck();
-        }
-      }
+      doMainRoutine();
       break;
     case Config:
       Serial.println("-----------WiFi Configuration-----------");
@@ -670,13 +671,7 @@ void loop() {
       if(Blynk.run()) {
         //Connected
         lastTimeOnline = millis();
-        if(!processCommand()) { //Check if command is inputted and process it
-          //In case no command to process
-          doDoorStatusCheck(true);
-          if(doorOpen) {
-            doDoorPassingCheck(true);
-          }
-        }
+        doMainRoutine(true);
       }
       else {
         //Connection lost. Try to reconnect.
@@ -698,13 +693,7 @@ void loop() {
         else {
           //Connection still lost. Try to reconnect.
           Blynk.run();
-          if(!processCommand()) { //Check if command is inputted and process it
-            //In case no command to process
-            doDoorStatusCheck(true);
-            if(doorOpen) {
-              doDoorPassingCheck(true);
-            }
-          }
+          doMainRoutine(true);
         }
       }
       else {
