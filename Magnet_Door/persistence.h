@@ -3,8 +3,16 @@
   Manages access to memory.
 *************************************************************/
 
+//===========================================================
+// included dependencies
 #include "EEPROM.h"
-#include "credentials.h"
+
+//===========================================================
+// forward declared dependencies
+struct WifiCredentials;
+
+//===========================================================
+// Definitons
 
 #define WIFI_START_ADRR 0
 #define SSID_MAX_SIZE 256
@@ -14,52 +22,55 @@
 #define ROOM_CAP_SIZE 1
 #define EEPROM_SIZE (WIFI_CONFIG_SIZE+ROOM_CAP_SIZE)
 
-/*
-* Initilizes memory with a certain size.
-*/
+//===========================================================
+// Function Declarations
+
+/**
+ * Initilizes memory with a certain size.
+ */
 void initMemory();
 
-/*
-* Loads the WiFi configuration from the flash memory.
-* @param wifiCred The WiFi configuration to be loaded.
-* @return Number of the loaded bytes.
-*/
+/**
+ * Loads the WiFi configuration from the flash memory.
+ * @param wifiCred The WiFi configuration to be loaded.
+ * @return Number of the loaded bytes.
+ */
 unsigned int loadWifiConfig(WifiCredentials &wifiCred);
 
-/*
-* Stores the WiFi configuration into the flash memory.
-* @param wifiCred The WiFi configuration to be saved.
-* @return 
-* -true: On success.
-* -false: otherwise.
-*/
+/**
+ * Stores the WiFi configuration into the flash memory.
+ * @param wifiCred The WiFi configuration to be saved.
+ * @return 
+ * -true: On success.
+ * -false: otherwise.
+ */
 bool storeWifiConfig(WifiCredentials &wifiCred);
 
-/*
-* Deletes the WiFi configuration in the flash memory.
-*/
+/**
+ * Deletes the WiFi configuration in the flash memory.
+ */
 bool deleteWifiConfig();
 
-/*
-* Loads the room capacity configuration from the flash memory.
-* @param count The value to be loaded.
-* @return The loaded max person count.
-*/
+/**
+ * Loads the room capacity configuration from the flash memory.
+ * @param count The value to be loaded.
+ * @return The loaded max person count.
+ */
 uint8_t loadRoomCapConfig();
 
-/*
-* Stores the room capacity configuration into the flash memory.
-* @param count The value to be stored.
-* @return 
-* -true: On success.
-* -false: otherwise.
-*/
+/**
+ * Stores the room capacity configuration into the flash memory.
+ * @param count The value to be stored.
+ * @return 
+ * -true: On success.
+ * -false: otherwise.
+ */
 bool storeRoomCapConfig(uint8_t count);
 
-/*
-* Erases the complete flash memory.
-* @return 
-* -true: On success.
-* -false: otherwise.
-*/
+/**
+ * Erases the complete flash memory.
+ * @return 
+ * -true: On success.
+ * -false: otherwise.
+ */
 bool clearMemory();

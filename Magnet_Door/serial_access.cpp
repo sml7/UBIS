@@ -1,14 +1,13 @@
-#pragma once
 /*************************************************************
-  Some helper functions to process input on the serial interface.
+  Implementation of some helper functions to process input on the serial interface.
 *************************************************************/
 
 //===========================================================
 // included dependencies
-#include "Arduino.h"
+#include "serial_access.h"
 
 //===========================================================
-// Function declarations
+// Function implementations
 
 /**
  * Prompts the user to input a string into the serial terminal.
@@ -23,9 +22,34 @@
 void inputStringFromSerial(
             String &input, 
             unsigned int maxLength, 
-            String enterMsg = "Please enter something: ", 
-            bool enteredMsg = true, 
-            bool trim = true);
+            String enterMsg, 
+            bool enteredMsg, 
+            bool trim) {
+
+  bool processed = false;
+  do {
+    Serial.println(enterMsg);
+    while (Serial.available() == 0) {}
+
+    String read = Serial.readString();
+    if(trim) {
+      read.trim(); //Remove carriage return from string
+    }
+    Serial.println(read.length());
+     
+    if(read.length() <= maxLength) {
+      input = read;
+      break; //processed
+    }
+    //failed processing
+    Serial.println("Error: Input exceeds maximum allowed size. Try again.");
+  }
+  while(true); //Repeat as long as processing did not succeed
+  if(enteredMsg) {
+    Serial.print("Entered: ");
+    Serial.println(input);
+  }
+}
 
 
 /**
@@ -36,4 +60,13 @@ void inputStringFromSerial(
  *   -true: If string was available and read.
  *   -false: otherwise.
  */
-bool readStringFromSerial(String &read, bool trim = true);
+bool readStringFromSerial(String &read, bool trim) {
+  if(Serial.available() != 0) {
+    read = Serial.readString();
+    if(trim) {
+      read.trim();
+    }
+    return true;
+  }
+  return false;
+}
