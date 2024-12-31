@@ -29,7 +29,6 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
   int indexFrom = 0;
   int indexTo = 0;
   indexTo = cmdStr.indexOf(" ");
-  Serial.print("Parsing Command: ");
   Serial.println(cmdStr);
   if(indexTo == -1) { 
     //In case no further parameters
@@ -52,14 +51,14 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
       cmd = new Command(CMD_CONF_WIFI, cmdStr); return true;
     }
     else {
-      String subCmd;
-      subCmd = cmdStr.substring(indexFrom, indexTo - 1);
+      String subCmd = cmdStr.substring(indexFrom, indexTo);
       if(subCmd == "Config") {
         indexFrom = indexTo + 1;
         indexTo = cmdStr.indexOf(indexTo);
         if(indexTo == -1) {
           subCmd = cmdStr.substring(indexFrom);
           cmd = new ArgCommand<long int>(CMD_CONF_ROOM_CAP, cmdStr, subCmd.toInt());
+          return true;
         }
       }
     }
@@ -79,9 +78,6 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
  *   -false: otherwise.
  */
 bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
-  ConnectionSystem &connSys = entCtrlSys.subSys.connSys;
-  RoomLoadSystem &roomLoadSys = entCtrlSys.subSys.roomLoadSys;
-
   switch(cmd.type) {
     case CMD_CONN:
       if(entCtrlSys.state != Online) {
@@ -108,15 +104,17 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
       return true;
     case CMD_CONF_WIFI:
       entCtrlSys.state = Config; return true;
-    case CMD_CONF_ROOM_CAP:
-      if(0 < static_cast<const ArgCommand<long int>&>(cmd).arg <= 255) {
-        roomLoadSys.roomCap = static_cast<const ArgCommand<long int>&>(cmd).arg;
+    case CMD_CONF_ROOM_CAP: {
+      long int arg = static_cast<const ArgCommand<long int>&>(cmd).arg;
+      if(arg > 0 && arg <= 255) {
+        entCtrlSys.configRoomCap(arg);
         return true;
       }
       else {
         Serial.println("Error: Parameter out of bounds. Should be between 0 and 255.");
         return false;
       }
+    }
     case CMD_RESET_WIFI:
       if(entCtrlSys.resetWifiConfig()) { //Try to delete config
         Serial.println("  >> WiFi credentials successfully resetted.");

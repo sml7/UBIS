@@ -10,6 +10,31 @@
 //===========================================================
 // Member function implementations
 
+/**
+ * Configures and saves the new room capacity.
+ * @param val Room capacity value which should be configured.
+ * @return 
+ *  -true: On success.
+ *  -false: otherwise.
+ */
+bool EntranceControlSystem::configRoomCap(uint8_t val) {
+  if(storeRoomCapConfig(val)) { //Try to set the room capacity
+    subSys.roomLoadSys.roomCap = val;
+  }
+  else {
+    Serial.println("Error: Failed set room capacity!.");
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Resets the system to factory Settings.
+ * @return 
+ *  -true: On success.
+ *  -false: otherwise.
+ */
 bool EntranceControlSystem::restoreFactorySettings() {
   if(deleteWifiConfig()) { //Try to reset wifi config
     loadWifiConfig(subSys.connSys.wifiCred); //update WiFi configuration
@@ -30,6 +55,12 @@ bool EntranceControlSystem::restoreFactorySettings() {
   return true;
 }
 
+/**
+ * Resets the WiFi configuration of the system.
+ * @return 
+ *  -true: On success.
+ *  -false: otherwise.
+ */
 bool EntranceControlSystem::resetWifiConfig() {
   if(deleteWifiConfig()) { //Try to delete config
     loadWifiConfig(subSys.connSys.wifiCred); //update WiFi configuration

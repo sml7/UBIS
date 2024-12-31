@@ -41,6 +41,15 @@ struct EntranceControlSystem {
   Subsystems subSys;    //All subsystems of the system
 
   /**
+   * Configures and saves the new room capacity.
+   * @param val Room capacity value which should be configured.
+   * @return 
+   *  -true: On success.
+   *  -false: otherwise.
+   */
+  bool configRoomCap(uint8_t val);
+
+  /**
    * Resets the system to factory Settings.
    * @return 
    *  -true: On success.
