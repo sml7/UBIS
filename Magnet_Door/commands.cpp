@@ -3,16 +3,10 @@
   Implementation of command parsing and execution behavior.
 *************************************************************/
 
-#define NO_GLOBAL_BLYNK 1   //To prevent multiple definitions of blynk
-
 //===========================================================
 // included dependencies
 #include "commands.h"
-#include "WString.h"
 #include "entrance_control_sys.h"
-#include "blynk_credentials.h"
-#include <BlynkSimpleEsp32.h>
-#include "persistence.h"
 
 //===========================================================
 // Function implementations
@@ -29,11 +23,9 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
   int indexFrom = 0;
   int indexTo = 0;
   indexTo = cmdStr.indexOf(" ");
-  Serial.println(cmdStr);
   if(indexTo == -1) { 
     //In case no further parameters
     if(cmdStr == "Connect") {
-      Serial.println(cmdStr);
       cmd = new Command(CMD_CONN, cmdStr); return true;
     }
     else if(cmdStr == "Disconnect") {
@@ -80,8 +72,8 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
 bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
   switch(cmd.type) {
     case CMD_CONN:
-      if(entCtrlSys.state != Online) {
-        entCtrlSys.state = Connect; return true;
+      if(!entCtrlSys.isOnline()) {
+        entCtrlSys.doConnect();
       }
       else {
         Serial.print("Info: Command unnecessary: ");
@@ -90,11 +82,8 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
       }
       return true;
     case CMD_DISCONN:
-      if(entCtrlSys.state != Offline) {
-        Blynk.disconnect();
-        Serial.println("-----------Going offline-----------");
-        digitalWrite(connLEDPin, HIGH); //update connection status led
-        entCtrlSys.state = Offline; return true;
+      if(entCtrlSys.isOnline()) {
+        entCtrlSys.doDisconnect();
       }
       else {
         Serial.print("Info: Command unnecessary: ");
@@ -103,7 +92,8 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
       }
       return true;
     case CMD_CONF_WIFI:
-      entCtrlSys.state = Config; return true;
+      entCtrlSys.configWifi();
+      return true;
     case CMD_CONF_ROOM_CAP: {
       long int arg = static_cast<const ArgCommand<long int>&>(cmd).arg;
       if(arg > 0 && arg <= 255) {
@@ -116,20 +106,10 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
       }
     }
     case CMD_RESET_WIFI:
-      if(entCtrlSys.resetWifiConfig()) { //Try to delete config
-        Serial.println("  >> WiFi credentials successfully resetted.");
-      }
-      else {
-        Serial.println("Error: Failed to reset WiFi credentials!.");
-      }
+      entCtrlSys.resetWifiConfig();
       return true;
     case CMD_RESET:
-      if(entCtrlSys.restoreFactorySettings()) { //Try to clear memory
-        Serial.println("  >> Configuration restored to factory settings.");
-      }
-      else {
-        Serial.println("Error: Failed to restored factory settings!.");
-      }
+      entCtrlSys.restoreFactorySettings();
       return true;
     default:
       return false;

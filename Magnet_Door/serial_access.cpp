@@ -5,6 +5,7 @@
 //===========================================================
 // included dependencies
 #include "serial_access.h"
+#include "Arduino.h"
 
 //===========================================================
 // Function implementations
@@ -35,7 +36,6 @@ void inputStringFromSerial(
     if(trim) {
       read.trim(); //Remove carriage return from string
     }
-    Serial.println(read.length());
      
     if(read.length() <= maxLength) {
       input = read;

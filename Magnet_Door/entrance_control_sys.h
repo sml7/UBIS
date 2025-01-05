@@ -1,67 +1,130 @@
-#pragma once
+#pragma oncecommSys
 /*************************************************************
   A system to handle the access of an entrance.
 *************************************************************/
 
 //===========================================================
 // included dependencies
-#include "conn_sys.h"
+#include <cstdint>
 #include "room_load_sys.h"
 #include "door_status_sys.h"
+#include "comm_sys.h"
+
+//===========================================================
+// forward declared dependencies
+enum class EntranceControlState: uint8_t;
 
 //===========================================================
 // Data Types
 
 /**
- * Represents the states the system FSM can be in.
- */
-enum SystemState {
-  Init,
-  Offline,
-  Config,
-  Connect,
-  Online,
-  Reconnect
-};
-
-/**
- * Groups all subsystems of the entrance control system
- */
-struct Subsystems {
-  ConnectionSystem connSys;
-  DoorStatusSystem doorStatSys;
-  RoomLoadSystem roomLoadSys;
-};
-
-/**
  * Manages access to an entrance.
  */
-struct EntranceControlSystem {
-  SystemState state;    //Current state of the system FSM
-  Subsystems subSys;    //All subsystems of the system
+class EntranceControlSystem {
+  private:
+    EntranceControlState state;               //< Current state of the system FSM.
+    CommunicationSystem& commSys;             //< A reference to the communication system.
+    DoorStatusSystem doorSys;                 //< The door state sub system.
+    RoomLoadSystem roomLoadSys;               //< The room load sub system.
+    WifiCredentials wifiCred;                 //< Saves the current WiFi credentials.
 
-  /**
-   * Configures and saves the new room capacity.
-   * @param val Room capacity value which should be configured.
-   * @return 
-   *  -true: On success.
-   *  -false: otherwise.
-   */
-  bool configRoomCap(uint8_t val);
+    /**
+     * The main routine of the entrance control system.
+     * Performing processing of commands, doing door status and passing checks
+     * and doing communication tasks using the communication system.
+     */
+    void doMainRoutine();
 
-  /**
-   * Resets the system to factory Settings.
-   * @return 
-   *  -true: On success.
-   *  -false: otherwise.
-   */
-  bool restoreFactorySettings();
+    /**
+     * Loads the system configuration from flash memory.
+     */
+    void loadConfig();
 
-  /**
-   * Resets the WiFi configuration of the system.
-   * @return 
-   *  -true: On success.
-   *  -false: otherwise.
-   */
-  bool resetWifiConfig();
+    /**
+     * Processes commands inputted over serial terminal.
+     * @return
+     *   -true: If a command was processed successfully.
+     *   -false: otherwise.
+     */
+    bool processCommand();
+
+  public:
+    /**
+     * Constructs a EntranceControlSystem with the used hardware pins.
+     * @param commSys Reference to the used communication system.
+     * @param openLEDPin The door open status LED pin.
+     * @param closedLEDPin The door closed status LED pin.
+     * @param magSwitchPin The magnatic switch pin.
+     * @param outerDetPin The outer detector pin.
+     * @param innerDetPin The inner detector pin.
+     */
+    EntranceControlSystem( CommunicationSystem& commSys,
+                           uint8_t openLEDPin, 
+                           uint8_t closedLEDPin, 
+                           uint8_t magSwitchPin, 
+                           uint8_t buzzerPin,
+                           uint8_t outerDetPin, 
+                           uint8_t innerDetPin);
+
+    /**
+     * Executes the system state machine.
+     */
+    void run();
+
+    /**
+     *  Brings the system back in initial state.
+     */
+    void reset();
+
+    /**
+     * Tells the communication system to connect WiFi and server.
+     */
+    void doConnect() const;
+
+    /**
+     * Tells the communication system to disconnect from the server.
+     */
+    void doDisconnect() const;
+
+    /**
+     * Returns the online state of the used communication system.
+     * @return
+     *  -true: If oline.
+     *  -false: otherwise.
+     */
+    bool isOnline() const;
+
+    /**
+     * Configures and saves the new room capacity into flash memory.
+     * @param val Room capacity value which should be configured.
+     * @return 
+     *  -true: If configuration could be successfully stored.
+     *  -false: otherwise.
+     */
+    bool configRoomCap(uint8_t val);
+
+    /**
+     * Performs a WiFi configuration over serial terminal.
+     * Stores the new configuration into flash memory.
+     * @return 
+     * -true: If configuration could be successfully stored.
+     * -false: otherwise.
+     */
+    bool configWifi();
+
+    /**
+     * Resets the system to factory Settings.
+     * @return 
+     *  -true: On success.
+     *  -false: otherwise.
+     */
+    bool restoreFactorySettings();
+
+    /**
+     * Resets the WiFi configuration of the system.
+     * @return 
+     *  -true: On success.
+     *  -false: otherwise.
+     */
+    bool resetWifiConfig();
 };

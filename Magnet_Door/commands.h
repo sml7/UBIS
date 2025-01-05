@@ -6,7 +6,6 @@
 #include "Arduino.h"
 //===========================================================
 // forward declared dependencies
-class String;
 struct EntranceControlSystem;
 
 //===========================================================

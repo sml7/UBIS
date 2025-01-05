@@ -2,92 +2,120 @@
   The implementation of a system to manage the current room load.
 *************************************************************/
 
-#define NO_GLOBAL_BLYNK 1   //To prevent multiple definitions of blynk
-
 //===========================================================
 // included dependencies
 #include "room_load_sys.h"
 #include "door_status_sys.h"
-#include "blynk_credentials.h"
-#include <BlynkSimpleEsp32.h>
+
+//===========================================================
+// Data Types
+
+/**
+ * Represents the states the door passing FSM can be in.
+ */
+enum class PassState: uint8_t {
+  idle,           //< Nothing happens
+  startEntering,  //< Someone starts to enter by passing the outer detector.
+  entering1,      //< Someone who enters stepped further in and now passes both detectors at the same time.
+  entering2,      //< Someone who enters stepped further in and now passes only the inner detector.
+  entered,        //< Someone fully entered.
+  startLeaving,   //< Someone starts to leave by passing the inner detector.
+  leaving1,       //< Someone who leaves stepped further out and now passes both detectors at the same time.
+  leaving2,       //< Someone who leaves stepped further out and now passes only the outer detector.
+  left            //< Someone fully left.
+};
 
 //===========================================================
 // Member function implementations
 
 /**
- * Determines the current door passing state by reading the light barrier inputs
- * and registeres entering events. 
- * Updates status LEDs accordingly on room full and room not full respectively.
- * Also checks if persons are still in the room if the door was closed.
- * Logs room full, room not full and persons in the room events to the server if in online mode.
- * Assumes that only one person can pass the door at the same time.
- * @param statSys A reference to the door status system.
- * @param online If set to true, will be in online mode.
+ * Constructs a RoomLoadSystem with the used hardware pins.
+ * @param outerDetPin The outer detector pin.
+ * @param innerDetPin The inner detector pin.
  */
-void RoomLoadSystem::doDoorPassingCheck(DoorStatusSystem &statSys, bool online) {
+RoomLoadSystem::RoomLoadSystem(  uint8_t outerDetPin,
+                                 uint8_t innerDetPin): outerDetPin(outerDetPin), 
+                                                       innerDetPin(innerDetPin),
+                                                       passState(PassState::idle) {
+  //Setup pins
+  pinMode(outerDetPin, INPUT);
+  pinMode(innerDetPin, INPUT);
+}
+
+/**
+ * Determines the current door passing state by reading the detector inputs
+ * and registeres entering and leaving events. 
+ * Assumes that only one person can pass the door at the same time.
+ * Accesses a DoorStatusSystem to update status LEDs on room full and room not full events respectively and
+ * also checks if persons are still in the room if the door was closed.
+ * Calls the callback on room full, room not full and persons in the room events.
+ * @param doorSys A reference to the door status system.
+ * @param eventCallback A callback which will be called if a room load event was registered.
+ */
+void RoomLoadSystem::doDoorPassingCheck(DoorStatusSystem& doorSys, std::function<void (RoomLoadEvent)> eventCallback) {
   switch(passState) {
-    case Idle:
+    case PassState::idle:
       if(isPassingOuter()) {
         //Someone starts to enter
-        passState = StartEntering;
+        passState = PassState::startEntering;
       }
       else if(isPassingInner()) {
         //Someone starts to leave
-        passState = StartLeaving;
+        passState = PassState::startLeaving;
       }
       break;
-    case StartEntering:
+    case PassState::startEntering:
      if(isPassingBoth()) {
-      //Someone who enters steped further in and now passes both barriers at the same time
-      passState = Entering1;
+      //Someone who enters stepped further in and now passes both detectors at the same time
+      passState = PassState::entering1;
      }
      else if(noPassing()) {
       //Someone decided to step back from entering
-      passState = Idle;
+      passState = PassState::idle;
      }
      else if(isPassingInner()) {
-      //Passing only the inner barrier is not allowed in this state.
+      //Passing only the inner detector is not allowed in this state.
       Serial.println("Error: During entering event!");
-      Serial.println("  >> Reason: Only inner barrier is passed, but both barriers were not passed before.");
+      Serial.println("  >> Reason: Only inner detector is passed, but both detectors were not passed before.");
       Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
-      passState = Idle;
+      passState = PassState::idle;
      }
      break;
-    case Entering1:
+    case PassState::entering1:
       if(isPassingInner()) {
-        //Someone who enters steped further in and now passes only the inner barrier
-        passState = Entering2;
+        //Someone who enters stepped further in and now passes only the inner detector
+        passState = PassState::entering2;
       }
       else if(isPassingOuter()) {
         //Someone decided to step back
-        passState = StartEntering;
+        passState = PassState::startEntering;
       }
       else if(noPassing()) {
-        //No passing of any barrier is not allowed in this state.
+        //No passing of any detector is not allowed in this state.
         Serial.println("Error: During entering event!");
-        Serial.println("  >> Reason: Both barriers were passed, but now no barrier is passed.");
+        Serial.println("  >> Reason: Both detectors were passed, but now no detector is passed.");
         Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
-        passState = Idle;
+        passState = PassState::idle;
       }
       break;
-    case Entering2:
+    case PassState::entering2:
      if(noPassing()) {
       //Someone finished entering
-      passState = Entered;
+      passState = PassState::entered;
      }
      else if(isPassingBoth()) {
       //Someone decided to step back
-      passState = Entering1;
+      passState = PassState::entering1;
      }
      else if(isPassingOuter()) {
-      //Passing only the outer barrier is not allowed in this state.
+      //Passing only the outer detector is not allowed in this state.
       Serial.println("Error: During entering event!");
-      Serial.println("  >> Reason: Someone passed the inner barrier, but now only the outer barrier is passed.");
+      Serial.println("  >> Reason: Someone passed the inner detector, but now only the outer detector is passed.");
       Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
-      passState = Idle;
+      passState = PassState::idle;
      }
      break;
-    case Entered:
+    case PassState::entered:
       if(personCount < roomCap) {
         personCount++;
         Serial.println("Passing event: Someone entered.");
@@ -99,60 +127,60 @@ void RoomLoadSystem::doDoorPassingCheck(DoorStatusSystem &statSys, bool online) 
         Serial.println("  >> Reason: Room is already full.");
         Serial.println("  >> Result: Falling back to idle.");
       }
-      passState = Idle;
+      passState = PassState::idle;
       break;
-    case StartLeaving:
+    case PassState::startLeaving:
       if(isPassingBoth()) {
-        //Someone who is leaving steped further out and now passes both barriers at the same time
-        passState = Leaving1;
+        //Someone who is leaving steped further out and now passes both detectors at the same time
+        passState = PassState::leaving1;
       }
       else if(noPassing()) {
         //Someone decided to step back from leaving
-        passState = Idle;
+        passState = PassState::idle;
       }
       else if(isPassingOuter()) {
-        //Passing only the outer barrier is not allowed in this state.
+        //Passing only the outer detector is not allowed in this state.
         Serial.println("Error: During leaving event!");
-        Serial.println("  >> Reason: Only outer barrier is passed, but both barriers were not passed before.");
+        Serial.println("  >> Reason: Only outer detector is passed, but both detectors were not passed before.");
         Serial.println("  >> Result: Could not detect leaving correctly. Falling back to idle.");
-        passState = Idle;
+        passState = PassState::idle;
       }
       break;
-    case Leaving1:
+    case PassState::leaving1:
       if(isPassingOuter()) {
-        //Someone who is leaving steped further out and now passes only the outer barrier
-        passState = Leaving2;
+        //Someone who is leaving steped further out and now passes only the outer detector
+        passState = PassState::leaving2;
       }
       else if(isPassingInner()) {
         //Someone decided to step back
-        passState = StartLeaving;
+        passState = PassState::startLeaving;
       }
       else if(noPassing()) {
-        //No passing of any barrier is not allowed in this state.
+        //No passing of any detector is not allowed in this state.
         Serial.println("Error: During leaving event!");
-        Serial.println("  >> Reason: Both barriers were passed, but now no barrier is passed.");
+        Serial.println("  >> Reason: Both detectors were passed, but now no detector is passed.");
         Serial.println("  >> Result: Could not detect leaving correctly. Falling back to idle.");
-        passState = Idle;
+        passState = PassState::idle;
       }
       break;
-    case Leaving2:
+    case PassState::leaving2:
       if(noPassing()) {
         //Someone finished leaving
-        passState = Left;
+        passState = PassState::left;
       }
       else if(isPassingBoth()) {
         //Someone decided to step back
-        passState = Leaving1;
+        passState = PassState::leaving1;
       }
       else if(isPassingInner()) {
-        //Passing only the inner barrier is not allowed in this state.
+        //Passing only the inner detector is not allowed in this state.
         Serial.println("Error: During leaving event!");
-        Serial.println("  >> Reason: Someone passed the outer barrier, but now only the inner barrier is passed.");
+        Serial.println("  >> Reason: Someone passed the outer detector, but now only the inner detector is passed.");
         Serial.println("  >> Result: Could not detect entering correctly. Falling back to idle.");
-        passState = Idle;
+        passState = PassState::idle;
       }
       break;
-    case Left:
+    case PassState::left:
       if(!(personCount == 0)) {
       personCount--;
         Serial.println("Passing event: Someone left.");
@@ -164,26 +192,27 @@ void RoomLoadSystem::doDoorPassingCheck(DoorStatusSystem &statSys, bool online) 
         Serial.println("  >> Reason: Room was already empty.");
         Serial.println("  >> Result: Falling back to idle.");
       }
-      passState = Idle;
+      passState = PassState::idle;
       break;
   }
 
   if(!roomFull && personCount >= roomCap) {
     Serial.println("Alert: Room is full.");
     roomFull = true;
-    if(online) {
-        // Trigger the event for notification in Blynk
-        Blynk.logEvent("room_full", "Alert: Room is full now.");
-    }
-    statSys.updateEntranceStatusLEDs(false);
+    eventCallback(RoomLoadEvent::roomFull); //Register the event
+    doorSys.setStatusLEDs(false);
   }
   else if(roomFull && personCount < roomCap) {
     Serial.println("Info: Room is no longer full.");
     roomFull = false;
-    if(online) {
-        // Trigger the event for notification in Blynk
-        Blynk.logEvent("room_not_full", "Info: Room is no longer full.");
-    }
-    statSys.updateEntranceStatusLEDs(true);
+    eventCallback(RoomLoadEvent::roomNotFull); //Register the event
+    doorSys.setStatusLEDs(true);
   }
+}
+
+/**
+ * Brings the system back in initial state.
+ */
+void RoomLoadSystem::reset() {
+  passState = PassState::idle;
 }

@@ -5,7 +5,7 @@
 //===========================================================
 // included dependencies
 #include "persistence.h"
-#include "conn_sys.h"
+#include "comm_sys.h"
 
 //===========================================================
 // Function implementations
