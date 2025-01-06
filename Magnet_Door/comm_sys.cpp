@@ -190,9 +190,11 @@ void CommunicationSystem::reset() {
  * @return The connection status.
  */
 ConnectionStatus CommunicationSystem::connect(const WifiCredentials& wifiCred) {
+  startConnLEDBlink();
   wl_status_t wifiStatus = connectWiFi(wifiCred.ssid.c_str(), wifiCred.pass.c_str());
+  ConnectionStatus connStatus = ConnectionStatus::connectionTimeout; //start assumtion connection failes with timeout
   switch(wifiStatus) {
-    case WL_CONNECTED: {
+    case WL_CONNECTED:
       Blynk.config(BLYNK_AUTH_TOKEN);
       if(Blynk.connect(CONN_TIMEOUT)) {
         //Successfully connected
@@ -202,19 +204,21 @@ ConnectionStatus CommunicationSystem::connect(const WifiCredentials& wifiCred) {
         digitalWrite(connLEDPin, LOW); //Setting connection status LED on
         return ConnectionStatus::connected;
       }
-      //Failed to connect to server
       break;
-    }
     case WL_NO_SSID_AVAIL:
-      return ConnectionStatus::noSSIDAvail;
+      connStatus = ConnectionStatus::noSSIDAvail;
+      break;
     case WL_DISCONNECTED:
-      return ConnectionStatus::wifiAuthFailed;
+      connStatus = ConnectionStatus::wifiAuthFailed;
+      break;
     default:
-      return ConnectionStatus::wifiFailed;
+      connStatus = ConnectionStatus::wifiFailed;
+      break;
   }
+  //Failed to connect
   online = false;
   endConnLEDBlink();
-  return ConnectionStatus::connectionTimeout;
+  return connStatus;
 }
 
 /**
@@ -280,7 +284,6 @@ void CommunicationSystem::startConnLEDBlink() {
 void CommunicationSystem::endConnLEDBlink() {
   if(connStatusTimer) {
     timerEnd(connStatusTimer); //Stop blinking
-    delete connStatusTimer;
     connStatusTimer = nullptr;
   }
   digitalWrite(connLEDPin, HIGH); //Setting connection status LED off

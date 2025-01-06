@@ -126,6 +126,7 @@ void EntranceControlSystem::run() {
         case ConnectionStatus::disconnected:
           Serial.println("-----------Going offline-----------");
           state = EntranceControlState::offline;
+          break;
       }
       break;
     }
@@ -140,11 +141,13 @@ void EntranceControlSystem::run() {
           break;
         case ConnectionStatus::connected:
           Serial.println("Info: Connection reestablished.");
+          Serial.println("-----------Back online-----------");
           state = EntranceControlState::online;
           break;
         case ConnectionStatus::disconnected:
           Serial.println("-----------Going offline-----------");
           state = EntranceControlState::offline;
+          break;
       }
       break;
     }
