@@ -27,6 +27,8 @@ class EntranceControlSystem {
     DoorStatusSystem doorSys;                 //< The door state sub system.
     RoomLoadSystem roomLoadSys;               //< The room load sub system.
     WifiCredentials wifiCred;                 //< Saves the current WiFi credentials.
+    unsigned long lastPost = 0;
+    const unsigned long postInterval = 1000;
 
     /**
      * The main routine of the entrance control system.
@@ -48,6 +50,8 @@ class EntranceControlSystem {
      */
     bool processCommand();
 
+    void sendSensorData();
+
   public:
     /**
      * Constructs a EntranceControlSystem with the used hardware pins.
@@ -65,6 +69,13 @@ class EntranceControlSystem {
                            uint8_t buzzerPin,
                            uint8_t outerDetPin, 
                            uint8_t innerDetPin);
+
+    /**
+     * Sets whether verbose status messages should be printed.
+     * Can be used for debugging.
+     * @param val Verbose value to be set.
+     */
+    void activateVerboseMessaging(bool val);
 
     /**
      * Executes the system state machine.

@@ -7,11 +7,15 @@
 #include "entrance_control_sys.h"
 #include "comm_sys.h"
 #include "system_config.h"
+#include <WiFiClient.h>
+#include <HTTPClient.h>
 
 //===========================================================
 // Globals
 EntranceControlSystem* mainCtrlSys; //< The main control system.
 CommunicationSystem* commSys;       //< The communication system.
+WiFiClient client;
+HTTPClient http;
 
 //===========================================================
 // Function implementations

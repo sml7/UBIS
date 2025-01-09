@@ -8,6 +8,7 @@
 #include "persistence.h"
 #include "commands.h"
 #include "serial_access.h"
+#include <ArduinoJson.h>
 
 //===========================================================
 // Data Types
@@ -83,6 +84,15 @@ EntranceControlSystem::EntranceControlSystem( CommunicationSystem& commSys,
                                                                     doorSys(openLEDPin, closedLEDPin, magSwitchPin, buzzerPin),
                                                                     roomLoadSys(outerDetPin, innerDetPin) {
   initMemory();                       
+}
+
+/**
+ * Sets whether verbose status messages should be printed.
+ * Can be used for debugging.
+ * @param val Verbose value to be set.
+ */
+void EntranceControlSystem::activateVerboseMessaging(bool val) {
+  commSys.setPrintStatus(val);
 }
 
 /**
@@ -222,6 +232,7 @@ void EntranceControlSystem::doMainRoutine() {
     if(doorSys.isDoorOpen()) {
       roomLoadSys.doDoorPassingCheck(doorSys, [this](RoomLoadEvent e) {roomLoadEventHandler(e, commSys);});
     }
+    sendSensorData();
   }
 }
 
@@ -318,6 +329,24 @@ inline bool EntranceControlSystem::processCommand() {
     Serial.println(cmdStr);
   }
   return false;
+}
+
+void EntranceControlSystem::sendSensorData() {
+  // Allocate the JSON document
+  JsonDocument doc;
+  if(millis() - lastPost >= postInterval) {
+    // Add values in the document
+    lastPost = millis();
+    // doc["time"] = String(lastPost);
+    doc["room"] = "Conference";
+    // doc["door_state"] = String(doorSys.isDoorOpen());
+    doc["people_count"] = String(roomLoadSys.getPersonCount());
+    // doc["temperature"] = "23";
+
+    String jsonData; //Data to be send
+    serializeJson(doc, jsonData);
+    commSys.sendData(jsonData);
+  }
 }
 
 /**

@@ -16,7 +16,6 @@
 #include "comm_sys.h"
 #include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
 
 /**
  * Represents the states the communication system FSM can be in.
@@ -97,6 +96,22 @@ CommunicationSystem::CommunicationSystem( uint8_t connButtonPin,
 }
 
 /**
+ * Sets the url of the server.
+ * @param url The url of the server.
+ */
+void CommunicationSystem::setServerUrl(char* url) {
+  serverUrl = url;
+}
+
+/**
+ * Set whether status messages should be printed over serial.
+ * @param val Enables printing or not.
+ */
+void CommunicationSystem::setPrintStatus(bool val) {
+  statusMessages = val;
+}
+
+/**
  * Executes the communication system state machine.
  * Monitores the connection button and changes.
  * Gives a connection request status back if pressed in offline mode otherwise it will disconnect.
@@ -124,7 +139,8 @@ ConnectionStatus CommunicationSystem::run() {
     case CommSysState::online:
       if(online) {
         //Connected
-        if(Blynk.run()) {
+        if(isConnected()) {
+          Blynk.run();
           if(checkConnButton()) {
             disconnect();
             status = ConnectionStatus::disconnected;
@@ -151,7 +167,7 @@ ConnectionStatus CommunicationSystem::run() {
       }
       else {
         if(millis() - lastTimeOnline <= CONN_TIMEOUT) {
-          if(Blynk.connected()) {
+          if(isConnected()) {
             //Connection reestablished
             lastTimeOnline = millis();
             state = CommSysState::online;
@@ -192,6 +208,7 @@ void CommunicationSystem::reset() {
 ConnectionStatus CommunicationSystem::connect(const WifiCredentials& wifiCred) {
   startConnLEDBlink();
   wl_status_t wifiStatus = connectWiFi(wifiCred.ssid.c_str(), wifiCred.pass.c_str());
+  //httpClient.connect()
   ConnectionStatus connStatus = ConnectionStatus::connectionTimeout; //start assumtion connection failes with timeout
   switch(wifiStatus) {
     case WL_CONNECTED:
@@ -262,6 +279,46 @@ void CommunicationSystem::logEvent(const String& eventName, const String& descri
 }
 
 /**
+ * Sends data to the connected server.
+ * @param jsonData The data which should be send. Data is expected to be in json format.
+ * @return Was the sending of data successful?
+ *  -true: If yes.
+ *  -false: otherwise.
+ */
+bool CommunicationSystem::sendData(const String& jsonData) {
+  if(WiFi.status() == WL_CONNECTED) {
+    // Preparing HTTP post request
+    http.begin(client, serverUrl);
+    http.addHeader("Content-Type", "application/json");
+
+    // send data
+    int httpResponseCode = http.POST(jsonData);
+
+    if(statusMessages) {
+      if (httpResponseCode > 0) {
+        Serial.printf("HTTP Response Code: %d\n", httpResponseCode);
+        String response = http.getString();
+        Serial.println("Server responds:");
+        Serial.println(response);
+        http.end();
+        return true;
+      } 
+      else {
+        Serial.printf("HTTP POST error: %s\n", http.errorToString(httpResponseCode).c_str());
+      }
+    }
+    else {
+      if (httpResponseCode > 0) {
+        http.end();
+        return true;
+      } 
+    }
+  }
+  http.end();
+  return false;
+}
+
+/**
  * Starts the blinking process of the connection status LED.
  * Uses a hardware timer, which executes the LED toggling routine periodically.
  * Can execute the LED blinking in parallel to other tasks.
@@ -287,6 +344,16 @@ void CommunicationSystem::endConnLEDBlink() {
     connStatusTimer = nullptr;
   }
   digitalWrite(connLEDPin, HIGH); //Setting connection status LED off
+}
+
+/**
+ * Checks whether there exists a connection to wifi and server.
+ * @return Are we connected?
+ *  -true: If yes.
+ *  -false: otherwise.
+ */
+inline bool CommunicationSystem::isConnected() {
+  return Blynk.connected() && http.connected();
 }
 
 // void printWifiStatus() {

@@ -6,6 +6,8 @@
 //===========================================================
 // included dependencies
 #include "Arduino.h"
+#include <WiFiClient.h>
+#include <HTTPClient.h>
 
 //===========================================================
 // Definitons
@@ -14,6 +16,8 @@
 //===========================================================
 // forward declared dependencies
 enum class CommSysState: uint8_t;
+extern WiFiClient client;
+extern HTTPClient http;
 
 //===========================================================
 // Data Types
@@ -53,6 +57,8 @@ class CommunicationSystem {
     bool online = false;                          //< Online state
     bool connButton = false;                      //< Registeres a press of the connection button.
     unsigned long lastTimeOnline = 0;             //< Record of last time the system was online.
+    char* serverUrl = "http://10.192.131.201:8000/live-data/"; //< Url to the web server.
+    bool statusMessages = false;                  //< If status  messages should be printed over serial.
     const uint8_t connButtonPin;                  //< Connection button pin.
     const uint8_t connLEDPin;                     //< Connection LED pin.
 
@@ -75,6 +81,14 @@ class CommunicationSystem {
      *  -false: otherwise.
      */
      bool checkConnButton();
+
+    /**
+     * Checks whether there exists a connection to wifi and server.
+     * @return Are we connected?
+     *  -true: If yes.
+     *  -false: otherwise.
+     */
+     bool isConnected();
     
   public:
 
@@ -86,6 +100,19 @@ class CommunicationSystem {
      */
     CommunicationSystem( uint8_t connButtonPin, 
                          uint8_t connLEDPin);
+
+    /**
+     * Sets the url of the server.
+     * @param url The url of the server.
+     */
+    void setServerUrl(char* url);
+
+    /**
+     * Set whether status messages should be printed over serial.
+     * Can be activated for debugging.
+     * @param val Enables printing or not.
+     */
+    void setPrintStatus(bool val);
 
     /**
      * Returns the online state of the communication system.
@@ -114,6 +141,15 @@ class CommunicationSystem {
      * @param description A discription which is send with the event.
      */
     void logEvent(const String& eventName, const String& description) const;
+
+    /**
+     * Sends data to the connected server.
+     * @param jsonData The data which should be send. Data is expected to be in json format.
+     * @return Was the sending of data successful?
+     *  -true: If yes.
+     *  -false: otherwise.
+     */
+    bool sendData(const String& jsonData);
 
     /**
      * Executes the communication system state machine.
