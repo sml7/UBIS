@@ -104,6 +104,14 @@ void CommunicationSystem::setServerUrl(const String& url) {
 }
 
 /**
+ * Gets the url of the web server.
+ * @param url The url of the server.
+ */
+const String& CommunicationSystem::getServerUrl() const {
+  return serverUrl;
+}
+
+/**
  * Set whether status messages should be printed over serial.
  * @param val Enables printing or not.
  */

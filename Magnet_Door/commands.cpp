@@ -27,21 +27,24 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
   if(indexTo == -1) { //No space found
     //In case no further parameters
     if(cmdStr == "Connect") {
-      cmd = new Command(CommandType::connect, cmdStr); done = true;;
+      cmd = new Command(CommandType::connect, cmdStr); done = true;
     }
     else if(cmdStr == "Disconnect") {
-      cmd = new Command(CommandType::disconnect, cmdStr); done = true;;
+      cmd = new Command(CommandType::disconnect, cmdStr); done = true;
     }
     else if(cmdStr == "Reset") {
-      cmd = new Command(CommandType::reset, cmdStr); done = true;;
+      cmd = new Command(CommandType::reset, cmdStr); done = true;
     }
   }
   else { //If there is a space
     if(cmdStr == "Reset Wifi") {
-      cmd = new Command(CommandType::resetWifi, cmdStr); done = true;;
+      cmd = new Command(CommandType::resetWifi, cmdStr); done = true;
+    }
+    if(cmdStr == "Show Config") {
+      cmd = new Command(CommandType::showConfig, cmdStr); done = true;
     }
     else if(cmdStr == "Config Wifi") {
-      cmd = new Command(CommandType::confWifi, cmdStr); done = true;;
+      cmd = new Command(CommandType::confWifi, cmdStr); done = true;
     }
     else { //If it can be a command with parameters
       String subCmd = cmdStr.substring(indexFrom, indexTo);
@@ -161,6 +164,9 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
       entCtrlSys.configServerUrl(arg);
       return true;
     }
+    case CommandType::showConfig:
+      entCtrlSys.printConfig();
+      return true;
     case CommandType::resetWifi:
       entCtrlSys.resetWifiConfig();
       return true;

@@ -14,7 +14,7 @@ struct EntranceControlSystem;
 /**
  * Defines the different types of commands of the entrance control system.
  */
-enum class CommandType: uint8_t {
+enum class CommandType: uint16_t {
   confWifi,                   //< To configure wifi
   confRoomCap,                //< To configure room capacity
   connect,                    //< To establish a connection to wifi and server
@@ -22,7 +22,8 @@ enum class CommandType: uint8_t {
   reset,                      //< To reset the entire system
   resetWifi,                  //< To reset the wifi configuration
   confVerbose,                //< To configure verbose status messaging
-  confServerUrl               //< To configure the url of the web server
+  confServerUrl,              //< To configure the url of the web server
+  showConfig                  //< To show the current configuration in terminal
 };
 
 /**

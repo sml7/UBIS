@@ -92,6 +92,7 @@ EntranceControlSystem::EntranceControlSystem( CommunicationSystem& commSys,
  * @param val Verbose value to be set.
  */
 void EntranceControlSystem::activateVerboseMessaging(bool val) {
+  verbose = val;
   commSys.setPrintStatus(val);
   if(val) {
     Serial.println(" >> Verbose Messaging activated.");
@@ -332,11 +333,29 @@ bool EntranceControlSystem::configWifi() {
   return false;
 }
 
+void EntranceControlSystem::printConfig() {
+  Serial.println("-----------Current Configuration-----------");
+  Serial.print(" >> SSID: ");
+  Serial.println(wifiCred.ssid);
+  Serial.print(" >> WiFi password: ");
+  Serial.println(wifiCred.pass);
+  Serial.print(" >> Web Server URL: ");
+  Serial.println(commSys.getServerUrl());
+  Serial.print(" >> Room Capacity: ");
+  Serial.println(roomLoadSys.getRoomCap());
+  Serial.print(" >> Verbose Status Messaging: ");
+  verbose? Serial.println("true"):Serial.println("false");
+  Serial.println("-------------------------------------------");
+}
+
 /**
  * Loads the system configuration from flash memory.
  */
 inline void EntranceControlSystem::loadConfig() {
   loadWifiConfig(wifiCred);
+  String serverUrl;
+  loadServerUrlConfig(serverUrl);
+  commSys.setServerUrl(serverUrl);
   roomLoadSys.setRoomCap(loadRoomCapConfig());
 }
 

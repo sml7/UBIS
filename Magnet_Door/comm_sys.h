@@ -104,10 +104,16 @@ class CommunicationSystem {
                          uint8_t connLEDPin);
 
     /**
-     * Sets the url of the server.
+     * Sets the url of the web server.
      * @param url The url of the server.
      */
     void setServerUrl(const String& url);
+
+    /**
+     * Gets the url of the web server.
+     * @param url The url of the server.
+     */
+    const String& getServerUrl() const;
 
     /**
      * Set whether status messages should be printed over serial.
