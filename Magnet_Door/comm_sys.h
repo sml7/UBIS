@@ -50,17 +50,19 @@ enum class ConnectionStatus: uint8_t {
  */
 class CommunicationSystem {
   private: 
-    hw_timer_t* connStatusTimer = NULL;           //< Hardware timer to handle connection status LED update task.
-    unsigned long lastConnButtonTime = 0;         //< Records the last time the connection button was not pressed.
-    const unsigned long connButtonInterval = 500; //< Duration the connection button needs to be pressed in milli seconds.
-    CommSysState state;                           //< The current state of the communication system FSM.
-    bool online = false;                          //< Online state
-    bool connButton = false;                      //< Registeres a press of the connection button.
-    unsigned long lastTimeOnline = 0;             //< Record of last time the system was online.
+    hw_timer_t* connStatusTimer = NULL;                        //< Hardware timer to handle connection status LED update task.
+    unsigned long lastConnButtonTime = 0;                      //< Records the last time the connection button was not pressed.
+    const unsigned long connButtonInterval = 500;              //< Duration the connection button needs to be pressed in milli seconds.
+    CommSysState state;                                        //< The current state of the communication system FSM.
+    bool online = false;                                       //< Online state
+    bool connButton = false;                                   //< Registeres a press of the connection button.
+    unsigned long lastTimeOnline = 0;                          //< Record of last time the system was online.
     char* serverUrl = "http://10.192.131.201:8000/live-data/"; //< Url to the web server.
-    bool statusMessages = false;                  //< If status  messages should be printed over serial.
-    const uint8_t connButtonPin;                  //< Connection button pin.
-    const uint8_t connLEDPin;                     //< Connection LED pin.
+    bool statusMessages = false;                               //< If status  messages should be printed over serial.
+    unsigned long lastConnStatusMessage = 0;                   //< To record the timestamp of the last connection status message.
+    const unsigned long connStatusMessageInterval = 3000;      //< Time interval between two connection status messages in milli seconds.
+    const uint8_t connButtonPin;                               //< Connection button pin.
+    const uint8_t connLEDPin;                                  //< Connection LED pin.
 
     /**
     * Starts the blinking process of the connection status LED.

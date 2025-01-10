@@ -243,6 +243,7 @@ ConnectionStatus CommunicationSystem::connect(const WifiCredentials& wifiCred) {
  */
 void CommunicationSystem::disconnect() {
   Blynk.disconnect();
+  WiFi.disconnect();
   online = false;
   endConnLEDBlink();
 }
@@ -286,7 +287,7 @@ void CommunicationSystem::logEvent(const String& eventName, const String& descri
  *  -false: otherwise.
  */
 bool CommunicationSystem::sendData(const String& jsonData) {
-  if(WiFi.status() == WL_CONNECTED) {
+  if(online && state != CommSysState::reconnect) {
     // Preparing HTTP post request
     http.begin(client, serverUrl);
     http.addHeader("Content-Type", "application/json");
@@ -296,15 +297,15 @@ bool CommunicationSystem::sendData(const String& jsonData) {
 
     if(statusMessages) {
       if (httpResponseCode > 0) {
-        Serial.printf("HTTP Response Code: %d\n", httpResponseCode);
+        Serial.printf("[CommSys]: HTTP Response Code: %d\n", httpResponseCode);
         String response = http.getString();
-        Serial.println("Server responds:");
+        Serial.println("[CommSys]: Server responds:");
         Serial.println(response);
         http.end();
         return true;
       } 
       else {
-        Serial.printf("HTTP POST error: %s\n", http.errorToString(httpResponseCode).c_str());
+        Serial.printf("[CommSys]: HTTP POST error: %s\n", http.errorToString(httpResponseCode).c_str());
       }
     }
     else {
@@ -313,8 +314,8 @@ bool CommunicationSystem::sendData(const String& jsonData) {
         return true;
       } 
     }
+    http.end();
   }
-  http.end();
   return false;
 }
 
@@ -347,13 +348,44 @@ void CommunicationSystem::endConnLEDBlink() {
 }
 
 /**
- * Checks whether there exists a connection to wifi and server.
+ * Checks whether there exists a connection to WiFi and server.
  * @return Are we connected?
  *  -true: If yes.
  *  -false: otherwise.
  */
 inline bool CommunicationSystem::isConnected() {
-  return Blynk.connected() && http.connected();
+  bool conn = true;
+  bool longEnough = false; //If the last status message was long enough ago.
+  if(millis() - lastConnStatusMessage >= connStatusMessageInterval) {
+    longEnough = true;
+  }
+
+  if(WiFi.status() == WL_CONNECTED) {
+      if(!Blynk.connected()) {
+        conn = false;
+        if(statusMessages && longEnough) {
+          Serial.println("[CommSys]: Lost connection to Blynk server.");
+          lastConnStatusMessage = millis();
+        }
+      }
+      http.begin(client, serverUrl);
+      if(!http.connected()) {
+        conn = false;
+        if(statusMessages && longEnough) {
+          Serial.println("[CommSys]: Lost connection to web server.");
+          lastConnStatusMessage = millis();
+        }
+      }
+      http.end();
+  }
+  else {
+    conn = false;
+    if(statusMessages && longEnough) {
+      Serial.println("[CommSys]: Lost connection to WiFi.");
+      lastConnStatusMessage = millis();
+    }
+  }
+  return conn;
 }
 
 // void printWifiStatus() {
