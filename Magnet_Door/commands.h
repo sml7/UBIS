@@ -14,13 +14,14 @@ struct EntranceControlSystem;
 /**
  * Defines the different types of commands of the entrance control system.
  */
-enum CommandType {
-  CMD_CONF_WIFI,
-  CMD_CONF_ROOM_CAP,
-  CMD_CONN,
-  CMD_DISCONN,
-  CMD_RESET,
-  CMD_RESET_WIFI
+enum class CommandType: uint8_t {
+  confWifi,                   //< To configure wifi
+  confRoomCap,                //< To configure room capacity
+  connect,                    //< To establish a connection to wifi and server
+  disconnect,                 //< To disconnect from server
+  reset,                      //< To reset the entire system
+  resetWifi,                  //< To reset the wifi configuration
+  confVerbose                 //< To configure verbose status messaging
 };
 
 /**

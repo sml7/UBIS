@@ -93,6 +93,12 @@ EntranceControlSystem::EntranceControlSystem( CommunicationSystem& commSys,
  */
 void EntranceControlSystem::activateVerboseMessaging(bool val) {
   commSys.setPrintStatus(val);
+  if(val) {
+    Serial.println(" >> Verbose Messaging activated.");
+  }
+  else {
+    Serial.println(" >> Verbose Messaging deactivated.");
+  }
 }
 
 /**
@@ -327,6 +333,9 @@ inline bool EntranceControlSystem::processCommand() {
     }
     Serial.print("Error: Command could not be processed: ");
     Serial.println(cmdStr);
+  }
+  if(command) {
+    delete command;
   }
   return false;
 }

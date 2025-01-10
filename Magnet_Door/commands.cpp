@@ -22,40 +22,64 @@
 bool parseCommand(const String &cmdStr, Command *&cmd) {
   int indexFrom = 0;
   int indexTo = 0;
-  indexTo = cmdStr.indexOf(" ");
-  if(indexTo == -1) { 
+  indexTo = cmdStr.indexOf(" "); //search for space
+  if(indexTo == -1) { //No space found
     //In case no further parameters
     if(cmdStr == "Connect") {
-      cmd = new Command(CMD_CONN, cmdStr); return true;
+      cmd = new Command(CommandType::connect, cmdStr); return true;
     }
     else if(cmdStr == "Disconnect") {
-      cmd = new Command(CMD_DISCONN, cmdStr); return true;
+      cmd = new Command(CommandType::disconnect, cmdStr); return true;
     }
     else if(cmdStr == "Reset") {
-      cmd = new Command(CMD_RESET, cmdStr); return true;
+      cmd = new Command(CommandType::reset, cmdStr); return true;
     }
   }
-  else {
+  else { //If there is a space
     if(cmdStr == "Reset Wifi") {
-      cmd = new Command(CMD_RESET_WIFI, cmdStr); return true;
+      cmd = new Command(CommandType::resetWifi, cmdStr); return true;
     }
     else if(cmdStr == "Config Wifi") {
-      cmd = new Command(CMD_CONF_WIFI, cmdStr); return true;
+      cmd = new Command(CommandType::confWifi, cmdStr); return true;
     }
-    else {
+    else { //If it can be a command with parameters
       String subCmd = cmdStr.substring(indexFrom, indexTo);
       if(subCmd == "Config") {
         indexFrom = indexTo + 1;
-        indexTo = cmdStr.indexOf(indexTo);
-        if(indexTo == -1) {
-          subCmd = cmdStr.substring(indexFrom);
-          cmd = new ArgCommand<long int>(CMD_CONF_ROOM_CAP, cmdStr, subCmd.toInt());
-          return true;
+        indexTo = cmdStr.indexOf(" ", indexFrom);
+        if(indexTo != -1) { //If there was a space found, read next token
+          String subCmd = cmdStr.substring(indexFrom, indexTo);
+          if(subCmd == "RoomCap") {
+            indexFrom = indexTo + 1;
+            indexTo = cmdStr.indexOf(" ", indexFrom);
+            //Check if there follows something after expected parameter
+            if(indexTo == -1) {
+              subCmd = cmdStr.substring(indexFrom); //Read parameter
+              cmd = new ArgCommand<long int>(CommandType::confRoomCap, cmdStr, subCmd.toInt());
+              return true;
+            }
+          }
+          else if(subCmd == "Verbose") {
+            indexFrom = indexTo + 1;
+            indexTo = cmdStr.indexOf(" ", indexFrom);
+            //Check if there follows something after expected parameter
+            if(indexTo == -1) {
+              subCmd = cmdStr.substring(indexFrom); //Read parameter
+              if(subCmd == "true") {
+                cmd = new ArgCommand<bool>(CommandType::confVerbose, cmdStr, true);
+                return true;
+              }
+              else if(subCmd == "false") {
+                cmd = new ArgCommand<bool>(CommandType::confVerbose, cmdStr, false);
+                return true;
+              }
+            }
+          }
         }
       }
     }
   }
-
+  //If it was not a valid command
   Serial.println("Error: Invalid command!");
   return false;
 }
@@ -71,7 +95,7 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
  */
 bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
   switch(cmd.type) {
-    case CMD_CONN:
+    case CommandType::connect:
       if(!entCtrlSys.isOnline()) {
         entCtrlSys.doConnect();
       }
@@ -81,7 +105,7 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
         Serial.println("  >> Reason: Already in Online mode.");
       }
       return true;
-    case CMD_DISCONN:
+    case CommandType::disconnect:
       if(entCtrlSys.isOnline()) {
         entCtrlSys.doDisconnect();
       }
@@ -91,10 +115,10 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
         Serial.println("  >> Reason: Already in Offline mode.");
       }
       return true;
-    case CMD_CONF_WIFI:
+    case CommandType::confWifi:
       entCtrlSys.configWifi();
       return true;
-    case CMD_CONF_ROOM_CAP: {
+    case CommandType::confRoomCap: {
       long int arg = static_cast<const ArgCommand<long int>&>(cmd).arg;
       if(arg > 0 && arg <= 255) {
         entCtrlSys.configRoomCap(arg);
@@ -105,10 +129,15 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
         return false;
       }
     }
-    case CMD_RESET_WIFI:
+    case CommandType::confVerbose: {
+      bool arg = static_cast<const ArgCommand<bool>&>(cmd).arg;
+      entCtrlSys.activateVerboseMessaging(arg);
+      return true;
+    }
+    case CommandType::resetWifi:
       entCtrlSys.resetWifiConfig();
       return true;
-    case CMD_RESET:
+    case CommandType::reset:
       entCtrlSys.restoreFactorySettings();
       return true;
     default:
