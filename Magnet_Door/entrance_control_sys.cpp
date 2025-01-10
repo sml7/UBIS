@@ -339,6 +339,9 @@ bool EntranceControlSystem::configWifi() {
   return false;
 }
 
+/**
+ * To print the current configuration over serial.
+ */
 void EntranceControlSystem::printConfig() {
   Serial.println("-----------Current Configuration-----------");
   Serial.print(" >> SSID: ");
