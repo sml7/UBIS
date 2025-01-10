@@ -37,7 +37,7 @@ void initMemory();
  * @param wifiCred The WiFi configuration to be loaded.
  * @return Number of the loaded bytes.
  */
-unsigned int loadWifiConfig(WifiCredentials &wifiCred);
+unsigned int loadWifiConfig(WifiCredentials& wifiCred);
 
 /**
  * Stores the WiFi configuration into the flash memory.
@@ -46,7 +46,7 @@ unsigned int loadWifiConfig(WifiCredentials &wifiCred);
  * -true: On success.
  * -false: otherwise.
  */
-bool storeWifiConfig(WifiCredentials &wifiCred);
+bool storeWifiConfig(const WifiCredentials& wifiCred);
 
 /**
  * Deletes the WiFi configuration in the flash memory.

@@ -22,7 +22,7 @@ void initMemory() {
  * @param wifiCred The WiFi configuration to be loaded.
  * @return Number of the loaded bytes.
  */
-unsigned int loadWifiConfig(WifiCredentials &wifiCred) {
+unsigned int loadWifiConfig(WifiCredentials& wifiCred) {
   char readSSID[SSID_MAX_SIZE]; //read buffer for ssid
   unsigned int bytesRead = EEPROM.readString(WIFI_START_ADRR,
                                              readSSID,
@@ -44,7 +44,7 @@ unsigned int loadWifiConfig(WifiCredentials &wifiCred) {
  * -true: On success.
  * -false: otherwise.
  */
-bool storeWifiConfig(WifiCredentials &wifiCred) {
+bool storeWifiConfig(const WifiCredentials& wifiCred) {
   EEPROM.writeString(WIFI_START_ADRR,wifiCred.ssid);
   EEPROM.writeString(SSID_MAX_SIZE,wifiCred.pass);
   return EEPROM.commit();
