@@ -12,7 +12,7 @@
 // Function implementations
 
 /**
- * Tries to pars a given command.
+ * Tries to parse a given command.
  * @param cmdStr The command string which should be parsed.
  * @param[out] cmd The command which was parsed.
  * @return 
@@ -22,25 +22,26 @@
 bool parseCommand(const String &cmdStr, Command *&cmd) {
   int indexFrom = 0;
   int indexTo = 0;
+  bool done = false;
   indexTo = cmdStr.indexOf(" "); //search for space
   if(indexTo == -1) { //No space found
     //In case no further parameters
     if(cmdStr == "Connect") {
-      cmd = new Command(CommandType::connect, cmdStr); return true;
+      cmd = new Command(CommandType::connect, cmdStr); done = true;;
     }
     else if(cmdStr == "Disconnect") {
-      cmd = new Command(CommandType::disconnect, cmdStr); return true;
+      cmd = new Command(CommandType::disconnect, cmdStr); done = true;;
     }
     else if(cmdStr == "Reset") {
-      cmd = new Command(CommandType::reset, cmdStr); return true;
+      cmd = new Command(CommandType::reset, cmdStr); done = true;;
     }
   }
   else { //If there is a space
     if(cmdStr == "Reset Wifi") {
-      cmd = new Command(CommandType::resetWifi, cmdStr); return true;
+      cmd = new Command(CommandType::resetWifi, cmdStr); done = true;;
     }
     else if(cmdStr == "Config Wifi") {
-      cmd = new Command(CommandType::confWifi, cmdStr); return true;
+      cmd = new Command(CommandType::confWifi, cmdStr); done = true;;
     }
     else { //If it can be a command with parameters
       String subCmd = cmdStr.substring(indexFrom, indexTo);
@@ -56,7 +57,7 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
             if(indexTo == -1) {
               subCmd = cmdStr.substring(indexFrom); //Read parameter
               cmd = new ArgCommand<long int>(CommandType::confRoomCap, cmdStr, subCmd.toInt());
-              return true;
+              done = true;
             }
           }
           else if(subCmd == "Verbose") {
@@ -67,11 +68,11 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
               subCmd = cmdStr.substring(indexFrom); //Read parameter
               if(subCmd == "true") {
                 cmd = new ArgCommand<bool>(CommandType::confVerbose, cmdStr, true);
-                return true;
+                done = true;
               }
               else if(subCmd == "false") {
                 cmd = new ArgCommand<bool>(CommandType::confVerbose, cmdStr, false);
-                return true;
+                done = true;
               }
             }
           }
@@ -79,8 +80,19 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
       }
     }
   }
-  //If it was not a valid command
-  Serial.println("Error: Invalid command!");
+  //Check if it was a valid command
+  if(done) {
+    if(cmd) {
+      return true;
+    }
+    else {
+      Serial.println("Error: Command parsing failed!");
+      Serial.println(" >> Reason: Could not allocate memory for command!");
+    }
+  } 
+  else {
+    Serial.println("Error: Invalid command!");
+  }
   return false;
 }
 
