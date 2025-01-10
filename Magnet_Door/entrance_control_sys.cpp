@@ -309,12 +309,14 @@ bool EntranceControlSystem::configServerUrl(const String& val) {
 /**
  * Performs a WiFi configuration over serial terminal.
  * Stores the new configuration into flash memory.
+ * Disconnects the WiFi and server connections beforehand.
  * @return 
  * -true: If configuration could be successfully stored.
  * -false: otherwise.
  */
 bool EntranceControlSystem::configWifi() {
   Serial.println("-----------WiFi Configuration-----------");
+  doDisconnect();
   //Reading SSID from terminal
   inputStringFromSerial(
       wifiCred.ssid, 
@@ -329,9 +331,11 @@ bool EntranceControlSystem::configWifi() {
 
   if(storeWifiConfig(wifiCred)) { //Try to store the WiFi configuration
     Serial.println(" >> WiFi configuration successfully stored.");
+    Serial.println("----------------------------------------");
     return true;
   }
   Serial.println("Error: Failed to store WiFi configuration!");
+  Serial.println("----------------------------------------");
   return false;
 }
 

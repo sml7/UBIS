@@ -118,6 +118,7 @@ class EntranceControlSystem {
     /**
      * Performs a WiFi configuration over serial terminal.
      * Stores the new configuration into flash memory.
+     * Disconnects the WiFi and server connections beforehand.
      * @return 
      * -true: If configuration could be successfully stored.
      * -false: otherwise.
