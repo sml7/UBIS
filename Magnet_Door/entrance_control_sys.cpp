@@ -250,6 +250,8 @@ void EntranceControlSystem::reset() {
   //Set inital state
   state = EntranceControlState::offline;
 
+  verbose = false;
+
   //load currently saved config
   loadConfig();
 
@@ -418,6 +420,14 @@ bool EntranceControlSystem::restoreFactorySettings() {
   }
   else {
     Serial.println("Error: Failed restore room capacity to default value!");
+    success = false;
+  }
+  if(storeServerUrlConfig("")) {
+    commSys.setServerUrl("");
+    Serial.println(" >> Server URL successfuly restored to default value.");
+  }
+  else {
+    Serial.println("Error: Failed restore server URL to default value!");
     success = false;
   }
   if(!success) {
