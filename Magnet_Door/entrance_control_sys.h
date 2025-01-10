@@ -27,8 +27,8 @@ class EntranceControlSystem {
     DoorStatusSystem doorSys;                 //< The door state sub system.
     RoomLoadSystem roomLoadSys;               //< The room load sub system.
     WifiCredentials wifiCred;                 //< Saves the current WiFi credentials.
-    unsigned long lastPost = 0;
-    const unsigned long postInterval = 1000;
+    unsigned long lastPost = 0;               //< records the last sending of data to the server.
+    const unsigned long postInterval = 1000;  //< Time interval between two data transmissions to the server in milli seconds.
 
     /**
      * The main routine of the entrance control system.
