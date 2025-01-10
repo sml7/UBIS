@@ -239,7 +239,7 @@ void EntranceControlSystem::doMainRoutine() {
     if(doorSys.isDoorOpen()) {
       roomLoadSys.doDoorPassingCheck(doorSys, [this](RoomLoadEvent e) {roomLoadEventHandler(e, commSys);});
     }
-    sendSensorData();
+    logData();
   }
 }
 
@@ -386,13 +386,27 @@ inline bool EntranceControlSystem::processCommand() {
   return false;
 }
 
-void EntranceControlSystem::sendSensorData() {
+/**
+ * Logs all collected data to the web server.
+ * Prints data information into serial if verbose messaging is enabled.
+ */
+void EntranceControlSystem::logData() {
   // Allocate the JSON document
   JsonDocument doc;
-  if(millis() - lastPost >= postInterval) {
-    // Add values in the document
-    lastPost = millis();
-    // doc["time"] = String(lastPost);
+  if(millis() - lastDataLog >= dataLogInterval) {
+    lastDataLog = millis();
+
+    if(verbose) {
+      Serial.println("[EntrCtrl] Logged data:");
+      Serial.print(" >> log time: ");
+      Serial.println(String(lastDataLog));
+      Serial.print(" >> door state: ");
+      Serial.println(String(doorSys.isDoorOpen()));
+      Serial.print(" >> Person Count: ");
+      Serial.println(String(roomLoadSys.getPersonCount()));
+    }
+    // Add values to the json document
+    // doc["log_time"] = String(lastDataLog);
     doc["room"] = "Conference";
     // doc["door_state"] = String(doorSys.isDoorOpen());
     doc["people_count"] = String(roomLoadSys.getPersonCount());

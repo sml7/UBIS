@@ -21,15 +21,15 @@ enum class EntranceControlState: uint8_t;
  * Manages access to an entrance.
  */
 class EntranceControlSystem {
-  private:
-    EntranceControlState state;               //< Current state of the system FSM.
-    CommunicationSystem& commSys;             //< A reference to the communication system.
-    DoorStatusSystem doorSys;                 //< The door state sub system.
-    RoomLoadSystem roomLoadSys;               //< The room load sub system.
-    WifiCredentials wifiCred;                 //< Saves the current WiFi credentials.
-    bool verbose = false;                     //< Whether verbose status messaging is activated.
-    unsigned long lastPost = 0;               //< records the last sending of data to the server.
-    const unsigned long postInterval = 1000;  //< Time interval between two data transmissions to the server in milli seconds.
+  private: 
+    EntranceControlState state;                  //< Current state of the system FSM.
+    CommunicationSystem& commSys;                //< A reference to the communication system.
+    DoorStatusSystem doorSys;                    //< The door state sub system.
+    RoomLoadSystem roomLoadSys;                  //< The room load sub system.
+    WifiCredentials wifiCred;                    //< Saves the current WiFi credentials.
+    bool verbose = false;                        //< Whether verbose status messaging is activated.
+    unsigned long lastDataLog = 0;               //< records the last logging of data.
+    const unsigned long dataLogInterval = 30000; //< Time interval between two data loggings in milli seconds.
 
     /**
      * The main routine of the entrance control system.
@@ -51,7 +51,7 @@ class EntranceControlSystem {
      */
     bool processCommand();
 
-    void sendSensorData();
+    void logData();
 
   public:
     /**
