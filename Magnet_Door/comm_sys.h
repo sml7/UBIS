@@ -57,7 +57,7 @@ class CommunicationSystem {
     bool online = false;                                       //< Online state
     bool connButton = false;                                   //< Registeres a press of the connection button.
     unsigned long lastTimeOnline = 0;                          //< Record of last time the system was online.
-    char* serverUrl = "http://10.192.131.201:8000/live-data/"; //< Url to the web server.
+    String serverUrl = "";                                     //< Url to the web server.
     bool statusMessages = false;                               //< If status  messages should be printed over serial.
     unsigned long lastConnStatusMessage = 0;                   //< To record the timestamp of the last connection status message.
     const unsigned long connStatusMessageInterval = 3000;      //< Time interval between two connection status messages in milli seconds.
@@ -107,7 +107,7 @@ class CommunicationSystem {
      * Sets the url of the server.
      * @param url The url of the server.
      */
-    void setServerUrl(char* url);
+    void setServerUrl(const String& url);
 
     /**
      * Set whether status messages should be printed over serial.

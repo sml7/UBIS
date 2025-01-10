@@ -21,7 +21,8 @@ enum class CommandType: uint8_t {
   disconnect,                 //< To disconnect from server
   reset,                      //< To reset the entire system
   resetWifi,                  //< To reset the wifi configuration
-  confVerbose                 //< To configure verbose status messaging
+  confVerbose,                //< To configure verbose status messaging
+  confServerUrl               //< To configure the url of the web server
 };
 
 /**

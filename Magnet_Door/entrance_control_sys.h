@@ -124,6 +124,15 @@ class EntranceControlSystem {
     bool configWifi();
 
     /**
+     * Configures and saves the new server URL into flash memory.
+     * @param val Server URL value which should be configured.
+     * @return 
+     *  -true: On success.
+     *  -false: otherwise.
+     */
+    bool configServerUrl(const String& val);
+
+    /**
      * Resets the system to factory Settings.
      * @return 
      *  -true: On success.

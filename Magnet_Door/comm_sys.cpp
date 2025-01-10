@@ -99,7 +99,7 @@ CommunicationSystem::CommunicationSystem( uint8_t connButtonPin,
  * Sets the url of the server.
  * @param url The url of the server.
  */
-void CommunicationSystem::setServerUrl(char* url) {
+void CommunicationSystem::setServerUrl(const String& url) {
   serverUrl = url;
 }
 
@@ -289,7 +289,7 @@ void CommunicationSystem::logEvent(const String& eventName, const String& descri
 bool CommunicationSystem::sendData(const String& jsonData) {
   if(online && state != CommSysState::reconnect) {
     // Preparing HTTP post request
-    http.begin(client, serverUrl);
+    http.begin(client, serverUrl.c_str());
     http.addHeader("Content-Type", "application/json");
 
     // send data
@@ -368,7 +368,7 @@ inline bool CommunicationSystem::isConnected() {
           lastConnStatusMessage = millis();
         }
       }
-      http.begin(client, serverUrl);
+      http.begin(client, serverUrl.c_str());
       if(!http.connected()) {
         conn = false;
         if(statusMessages && longEnough) {

@@ -20,7 +20,9 @@ struct WifiCredentials;
 #define WIFI_CONFIG_SIZE (SSID_MAX_SIZE+PASS_MAX_SIZE)
 #define ROOM_CAP_START_ADRR WIFI_CONFIG_SIZE
 #define ROOM_CAP_SIZE 1
-#define EEPROM_SIZE (WIFI_CONFIG_SIZE+ROOM_CAP_SIZE)
+#define SERVER_URL_MAX_SIZE 256
+#define SERVER_URL_START_ADDR (WIFI_CONFIG_SIZE+ROOM_CAP_SIZE)
+#define EEPROM_SIZE (WIFI_CONFIG_SIZE+ROOM_CAP_SIZE+SERVER_URL_MAX_SIZE)
 
 //===========================================================
 // Function Declarations
@@ -66,6 +68,22 @@ uint8_t loadRoomCapConfig();
  * -false: otherwise.
  */
 bool storeRoomCapConfig(uint8_t count);
+
+/**
+ * Loads the server url from the flash memory.
+ * @param serverUrl The sever url to be loaded.
+ * @return Number of the loaded bytes.
+ */
+unsigned int loadServerUrlConfig(String& serverUrl);
+
+/**
+ * Stores the sever url into the flash memory.
+ * @param serverUrl The sever url to be saved.
+ * @return 
+ * -true: On success.
+ * -false: otherwise.
+ */
+bool storeServerUrlConfig(const String& serverUrl);
 
 /**
  * Erases the complete flash memory.

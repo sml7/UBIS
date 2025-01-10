@@ -270,10 +270,35 @@ bool EntranceControlSystem::configRoomCap(uint8_t val) {
     roomLoadSys.setRoomCap(val);
   }
   else {
-    Serial.println("Error: Failed set room capacity!.");
+    Serial.println("Error: Failed set room capacity!");
     return false;
   }
   Serial.print(" >> Successfully set room capacity to: ");
+  Serial.println(val);
+  return true;
+}
+
+/**
+ * Configures and saves the new server URL into flash memory.
+ * @param val Server URL value which should be configured.
+ * @return 
+ *  -true: On success.
+ *  -false: otherwise.
+ */
+bool EntranceControlSystem::configServerUrl(const String& val) {
+  if(val.length() > SERVER_URL_MAX_SIZE) {
+    Serial.printf("Error: URL is to long! The maximum allowed length is %d characters.\n", 
+                  SERVER_URL_MAX_SIZE);
+    return false;
+  }
+  if(storeServerUrlConfig(val)) { //Try to set the room capacity
+    commSys.setServerUrl(val);
+  }
+  else {
+    Serial.println("Error: Failed to set server url!");
+    return false;
+  }
+  Serial.print(" >> Successfully set server url to: ");
   Serial.println(val);
   return true;
 }
@@ -303,7 +328,7 @@ bool EntranceControlSystem::configWifi() {
     Serial.println(" >> WiFi configuration successfully stored.");
     return true;
   }
-  Serial.println("Error: Failed to store WiFi configuration!.");
+  Serial.println("Error: Failed to store WiFi configuration!");
   return false;
 }
 
@@ -377,7 +402,7 @@ bool EntranceControlSystem::restoreFactorySettings() {
     success = false;
   }
   if(!success) {
-    Serial.println("Error: Failed to restored factory settings!.");
+    Serial.println("Error: Failed to restored factory settings!");
     return false;
   }
   reset();

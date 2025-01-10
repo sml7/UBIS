@@ -24,11 +24,15 @@ void initMemory() {
  */
 unsigned int loadWifiConfig(WifiCredentials &wifiCred) {
   char readSSID[SSID_MAX_SIZE]; //read buffer for ssid
-  unsigned int bytesRead = EEPROM.readString(WIFI_START_ADRR,readSSID,SSID_MAX_SIZE - 1);
+  unsigned int bytesRead = EEPROM.readString(WIFI_START_ADRR,
+                                             readSSID,
+                                             SSID_MAX_SIZE - 1);
   wifiCred.ssid = String(readSSID);
 
   char readPass[PASS_MAX_SIZE]; //read buffer for pass
-  bytesRead += EEPROM.readString(SSID_MAX_SIZE,readPass,PASS_MAX_SIZE - 1);
+  bytesRead += EEPROM.readString(SSID_MAX_SIZE,
+                                 readPass,
+                                 PASS_MAX_SIZE - 1);
   wifiCred.pass = String(readPass);
   return bytesRead;
 }
@@ -76,6 +80,33 @@ bool storeRoomCapConfig(uint8_t count) {
   EEPROM.writeByte(ROOM_CAP_START_ADRR,count);
   return EEPROM.commit();
 }
+
+/**
+ * Loads the server url from the flash memory.
+ * @param serverUrl The sever url to be loaded.
+ * @return Number of the loaded bytes.
+ */
+unsigned int loadServerUrlConfig(String& serverUrl) {
+  char readUrl[SERVER_URL_MAX_SIZE]; //read buffer
+  unsigned int bytesRead = EEPROM.readString(SERVER_URL_START_ADDR, 
+                                             readUrl, 
+                                             SERVER_URL_MAX_SIZE - 1);
+  serverUrl = readUrl;
+  return bytesRead;
+}
+
+/**
+ * Stores the sever url into the flash memory.
+ * @param serverUrl The sever url to be saved.
+ * @return 
+ * -true: On success.
+ * -false: otherwise.
+ */
+bool storeServerUrlConfig(const String& serverUrl) {
+  EEPROM.writeString(SERVER_URL_START_ADDR, serverUrl);
+  return EEPROM.commit();
+}
+
 
 /**
  * Erases the complete flash memory.

@@ -76,6 +76,16 @@ bool parseCommand(const String &cmdStr, Command *&cmd) {
               }
             }
           }
+          else if(subCmd == "ServerUrl") {
+            indexFrom = indexTo + 1;
+            indexTo = cmdStr.indexOf(" ", indexFrom);
+            //Check if there follows something after expected parameter
+            if(indexTo == -1) {
+              subCmd = cmdStr.substring(indexFrom); //Read parameter
+              cmd = new ArgCommand<String>(CommandType::confServerUrl, cmdStr, subCmd);
+              done = true;
+            }
+          }
         }
       }
     }
@@ -144,6 +154,11 @@ bool executeCommand(EntranceControlSystem &entCtrlSys, const Command &cmd) {
     case CommandType::confVerbose: {
       bool arg = static_cast<const ArgCommand<bool>&>(cmd).arg;
       entCtrlSys.activateVerboseMessaging(arg);
+      return true;
+    }
+    case CommandType::confServerUrl: {
+      const String& arg = static_cast<const ArgCommand<String>&>(cmd).arg;
+      entCtrlSys.configServerUrl(arg);
       return true;
     }
     case CommandType::resetWifi:
