@@ -399,6 +399,9 @@ inline bool EntranceControlSystem::processCommand() {
   return false;
 }
 
+/**
+ * Determines the temperature at the entrance.
+ */
 void EntranceControlSystem::doTemperatureCheck() {
   uint16_t read = analogRead(termPin); //Read thermistor
   float voltage = (float)read/4096 * 3.3; //Voltage of thermistor

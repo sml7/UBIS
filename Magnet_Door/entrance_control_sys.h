@@ -53,8 +53,15 @@ class EntranceControlSystem {
      */
     bool processCommand();
 
+    /**
+     * Logs all collected data to the web server.
+     * Prints data information into serial if verbose messaging is enabled.
+     */
     void logData();
 
+    /**
+     * Determines the temperature at the entrance.
+     */
     void doTemperatureCheck();
 
   public:
