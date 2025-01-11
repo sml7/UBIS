@@ -29,7 +29,9 @@ class EntranceControlSystem {
     WifiCredentials wifiCred;                    //< Saves the current WiFi credentials.
     bool verbose = false;                        //< Whether verbose status messaging is activated.
     unsigned long lastDataLog = 0;               //< records the last logging of data.
-    const unsigned long dataLogInterval = 30000; //< Time interval between two data loggings in milli seconds.
+    const unsigned long dataLogInterval = 3000; //< Time interval between two data loggings in milli seconds.
+    const uint8_t termPin;                       //< The pin of the thermistor.
+    float temperature = 0;                       //< The current temperature in °C at the door position.
 
     /**
      * The main routine of the entrance control system.
@@ -53,17 +55,22 @@ class EntranceControlSystem {
 
     void logData();
 
+    void doTemperatureCheck();
+
   public:
     /**
      * Constructs a EntranceControlSystem with the used hardware pins.
      * @param commSys Reference to the used communication system.
+     * @param termPin The thermistor pin
      * @param openLEDPin The door open status LED pin.
      * @param closedLEDPin The door closed status LED pin.
      * @param magSwitchPin The magnatic switch pin.
+     * @param buzzerPin The buzzer pin.
      * @param outerDetPin The outer detector pin.
      * @param innerDetPin The inner detector pin.
      */
     EntranceControlSystem( CommunicationSystem& commSys,
+                           uint8_t termPin,
                            uint8_t openLEDPin, 
                            uint8_t closedLEDPin, 
                            uint8_t magSwitchPin, 

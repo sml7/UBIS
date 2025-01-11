@@ -29,6 +29,7 @@ void setup() {
                                     CONN_LED_PIN);
 
   mainCtrlSys = new EntranceControlSystem( *commSys,
+                                           TERM_PIN,
                                            OPENED_LED_PIN, 
                                            CLOSED_LED_PIN, 
                                            MAG_SWITCH_PIN, 

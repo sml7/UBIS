@@ -67,23 +67,28 @@ inline static void doorStatusEventHandler(DoorStatusEvent e, CommunicationSystem
 /**
  * Constructs a EntranceControlSystem with the used hardware pins.
  * @param commSys Reference to the used communication system.
+ * @param termPin The thermistor pin
  * @param openLEDPin The door open status LED pin.
  * @param closedLEDPin The door closed status LED pin.
  * @param magSwitchPin The magnatic switch pin.
+ * @param buzzerPin The buzzer pin.
  * @param outerDetPin The outer detector pin.
  * @param innerDetPin The inner detector pin.
  */
 EntranceControlSystem::EntranceControlSystem( CommunicationSystem& commSys,
+                                              uint8_t termPin,
                                               uint8_t openLEDPin, 
                                               uint8_t closedLEDPin, 
                                               uint8_t magSwitchPin, 
                                               uint8_t buzzerPin,
                                               uint8_t outerDetPin, 
                                               uint8_t innerDetPin): state(EntranceControlState::offline),
+                                                                    termPin(termPin),
                                                                     commSys(commSys),
                                                                     doorSys(openLEDPin, closedLEDPin, magSwitchPin, buzzerPin),
                                                                     roomLoadSys(outerDetPin, innerDetPin) {
-  initMemory();                       
+  initMemory();
+  pinMode(termPin, INPUT);                       
 }
 
 /**
@@ -235,6 +240,7 @@ void EntranceControlSystem::doDisconnect() const {
 void EntranceControlSystem::doMainRoutine() {
   if(!processCommand()) { //Check if command is inputted and process it
     //In case no command to process
+    doTemperatureCheck();
     doorSys.doDoorStatusCheck(roomLoadSys, [this](DoorStatusEvent e) {doorStatusEventHandler(e, commSys);});
     if(doorSys.isDoorOpen()) {
       roomLoadSys.doDoorPassingCheck(doorSys, [this](RoomLoadEvent e) {roomLoadEventHandler(e, commSys);});
@@ -393,6 +399,15 @@ inline bool EntranceControlSystem::processCommand() {
   return false;
 }
 
+void EntranceControlSystem::doTemperatureCheck() {
+  uint16_t read = analogRead(termPin); //Read thermistor
+  float voltage = (float)read/4096 * 3.3; //Voltage of thermistor
+  float Rt = 10 * voltage/(3.3 - voltage); //Resistance of thermistor
+
+  float tempK = 1/(1/(273.15 + 25) + log(Rt/10)/3950.0); //Temperature in Kelvin
+  temperature = tempK - 273.15;                    //Temperature in °C
+}
+
 /**
  * Logs all collected data to the web server.
  * Prints data information into serial if verbose messaging is enabled.
@@ -411,6 +426,9 @@ void EntranceControlSystem::logData() {
       Serial.println(String(doorSys.isDoorOpen()));
       Serial.print(" >> Person Count: ");
       Serial.println(String(roomLoadSys.getPersonCount()));
+      Serial.print(" >> Temperature: ");
+      Serial.print(String(temperature));
+      Serial.println(" °C");
     }
     // Add values to the json document
     // doc["log_time"] = String(lastDataLog);
