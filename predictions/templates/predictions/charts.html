@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charts</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">Interactive Charts</h1>
+        {% if charts_data %}
+            <div>
+                <h2>Temperature Over Time</h2>
+                {{ charts_data.line_chart|safe }}
+            </div>
+            <div>
+                <h2>Average Door State by Day of the Week (%)</h2>
+                {{ charts_data.bar_chart|safe }}
+            </div>
+            <div>
+                <h2>Recent Activity vs. Temperature</h2>
+                {{ charts_data.scatter_chart|safe }}
+            </div>
+        {% else %}
+            <div class="alert alert-danger">
+                No charts available. Please ensure the data is properly loaded.
+            </div>
+        {% endif %}
+    </div>
+    <div id="live-chart">
+        <h2>Live People Count</h2>
+        <div id="live-chart-container"></div>
+    </div>
+    
+    <script>
+        async function fetchLiveData() {
+            try {
+                const response = await fetch('/live-data/'); // Lokale Daten abrufen
+                const data = await response.json();
+    
+                if (data.status === 'error') {
+                    console.error(data.message);
+                    return;
+                }
+    
+                // Daten für die Live-Chart aktualisieren
+                const chartData = [{
+                    x: [new Date()],
+                    y: [data.people_count],
+                    mode: 'lines+markers',
+                    name: 'People Count'
+                }];
+    
+                const layout = {
+                    title: 'Live People Count',
+                    xaxis: { title: 'Time' },
+                    yaxis: { title: 'Number of People' }
+                };
+    
+                Plotly.react('live-chart-container', chartData, layout);
+            } catch (err) {
+                console.error("Error fetching live data:", err);
+            }
+        }
+    
+        // Aktualisierung alle 60 Sekunden
+        setInterval(fetchLiveData, 60000);
+        fetchLiveData();
+    </script>
+    
+</body>
+</html>

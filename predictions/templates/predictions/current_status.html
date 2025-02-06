@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Current Status</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Current Status</h1>
+        <div class="card mt-3">
+            <div class="card-body">
+                <h3 class="card-title">Room: {{ room }}</h3>
+                <p class="card-text">People Count: <strong>{{ people_count }}</strong></p>
+                <p class="card-text">Door Status: <strong>{{ door_status }}</strong></p>
+            </div>
+        </div>
+        <a href="/" class="btn btn-primary mt-3">Back to Dashboard</a>
+    </div>
+</body>
+</html>
