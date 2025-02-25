@@ -436,7 +436,7 @@ void EntranceControlSystem::logData() {
     // Add values to the json document
     // doc["log_time"] = String(lastDataLog);
     doc["room"] = "Conference";
-    // doc["door_state"] = String(doorSys.isDoorOpen());
+    doc["door_state"] = doorSys.isDoorOpen();
     doc["people_count"] = String(roomLoadSys.getPersonCount());
     // doc["temperature"] = "23";
 
